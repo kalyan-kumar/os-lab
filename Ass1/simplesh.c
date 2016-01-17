@@ -8,6 +8,11 @@
 #include <dirent.h>             // Necessary for directory streams
 #include <unistd.h>
 #include <time.h>
+#include <pwd.h>
+#include <grp.h>
+#include <locale.h>
+#include <langinfo.h>
+#include <stdint.h>
 
 #define HISTSIZE 100
 #define HISTFILESIZE 1000
@@ -225,58 +230,73 @@ int main(int argc, char **argv, char **envp)
         else if(!strcmp("ls", tokens[0]))
         {
             DIR *d;
-            struct dirent *dir;
+            struct dirent *dp;
+            struct stat     statbuf;
+            struct passwd  *pwd;
+            struct group   *grp;
+            struct tm      *tm;
+            char            datestring[256];
+
             if(i==2)
             {
                 d = opendir(cwd);
                 if(d)
                 {
-                    while((dir=readdir(d))!=NULL)
-                        fprintf(stdout, "%s\n", dir->d_name);
-                    closedir(d);
+                    while((dp=readdir(d))!=NULL)
+                        fprintf(stdout, "%s\n", dp->d_name);
                 }
                 else
                     perror("");
+                closedir(d);
             }
             else
             {
-                if(tokens[1][0] == '-')
+                d = opendir(cwd);
+                if(d)
                 {
-                    struct stat sb;
-                    if(stat(cwd, &sb) == -1)
-                        perror("stat");
-                    else
+                    while((dp=readdir(d))!=NULL)
                     {
-                        printf("File type:                ");
+                        /* Get entry's information. */
+                        if (stat(dp->d_name, &statbuf) == -1)
+                            continue;
+                        
+                        /* Print out type, permissions, and number of links. */
+                        printf( (S_ISDIR(statbuf.st_mode)) ? "d" : "-");
+                        printf( (statbuf.st_mode & S_IRUSR) ? "r" : "-");
+                        printf( (statbuf.st_mode & S_IWUSR) ? "w" : "-");
+                        printf( (statbuf.st_mode & S_IXUSR) ? "x" : "-");
+                        printf( (statbuf.st_mode & S_IRGRP) ? "r" : "-");
+                        printf( (statbuf.st_mode & S_IWGRP) ? "w" : "-");
+                        printf( (statbuf.st_mode & S_IXGRP) ? "x" : "-");
+                        printf( (statbuf.st_mode & S_IROTH) ? "r" : "-");
+                        printf( (statbuf.st_mode & S_IWOTH) ? "w" : "-");
+                        printf( (statbuf.st_mode & S_IXOTH) ? "x" : "-");
+                        printf("%4d", statbuf.st_nlink);
 
-                        switch (sb.st_mode & S_IFMT)
-                        {
-                            case S_IFBLK:  printf("block device\n");            break;
-                            case S_IFCHR:  printf("character device\n");        break;
-                            case S_IFDIR:  printf("directory\n");               break;
-                            case S_IFIFO:  printf("FIFO/pipe\n");               break;
-                            case S_IFLNK:  printf("symlink\n");                 break;
-                            case S_IFREG:  printf("regular file\n");            break;
-                            case S_IFSOCK: printf("socket\n");                  break;
-                            default:       printf("unknown?\n");                break;
-                        }
+                        /* Print out owner's name if it is found using getpwuid(). */
+                        if ((pwd = getpwuid(statbuf.st_uid)) != NULL)
+                            printf(" %-8.8s", pwd->pw_name);
+                        else
+                            printf(" %-8d", statbuf.st_uid);
 
-                        printf("I-node number:            %ld\n", (long) sb.st_ino);
+                        /* Print out group name if it is found using getgrgid(). */
+                        if ((grp = getgrgid(statbuf.st_gid)) != NULL)
+                            printf(" %-8.8s", grp->gr_name);
+                        else
+                            printf(" %-8d", statbuf.st_gid);
 
-                        printf("Mode:                     %lo (octal)\n", (unsigned long)sb.st_mode);
-
-                        printf("Link count:               %ld\n", (long) sb.st_nlink);
-                        printf("Ownership:                UID=%ld   GID=%ld\n", (long)sb.st_uid, (long)sb.st_gid);
-
-                        printf("Preferred I/O block size: %ld bytes\n", (long)sb.st_blksize);
-                        printf("File size:                %lld bytes\n", (long long)sb.st_size);
-                        printf("Blocks allocated:         %lld\n", (long long)sb.st_blocks);
-
-                        printf("Last status change:       %s", ctime(&sb.st_ctime));
-                        printf("Last file access:         %s", ctime(&sb.st_atime));
-                        printf("Last file modification:   %s", ctime(&sb.st_mtime));
+                        /* Print size of file. */
+                        printf(" %9jd", (intmax_t)statbuf.st_size);
+                        
+                        /* Get localized date string. */
+                        tm = localtime(&statbuf.st_mtime);
+                        strftime(datestring, sizeof(datestring), nl_langinfo(D_T_FMT), tm);
+                        printf(" %s %s\n", datestring, dp->d_name);
                     }
                 }
+                else
+                    perror("");
+                closedir(d);
             }
         }
         else if(!strcmp("history", tokens[0]))
