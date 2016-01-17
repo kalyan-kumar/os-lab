@@ -125,11 +125,10 @@ int main(int argc, char **argv, char **envp)
     int trig;
     for(trig=0;trig<HISTSIZE;trig++)
         hist_list[trig] = (char *)malloc(100*sizeof(char));
-    FILE *histfile = fopen(hist_loc, "r");
+    FILE *histfile = fopen(hist_loc, "r");  
     trig = 0;
     if(histfile)
     {
-        printf("Inside\n");
         while(fgets(hist_list[trig], 100, histfile)!=NULL)
         {
             hist_list[trig][strlen(hist_list[trig])-1] = '\0';
@@ -319,11 +318,11 @@ int main(int argc, char **argv, char **envp)
                     tere = 0;
             }
             for(;tere<cmd_count;tere++)
-                fprintf(stdout, "%s\n", hist_list[tere%HISTSIZE]);
+                fprintf(stdout, "%d %s\n", tere+1,hist_list[tere%HISTSIZE]);
         }
         else if(!strcmp("exit", tokens[0]))
         {
-            FILE *histfile = fopen(hist_loc, "a");
+            FILE *histfile = fopen(hist_loc, "w");
             int tree;
             if(cmd_count > HISTSIZE)
                 tree = cmd_count%HISTSIZE;
