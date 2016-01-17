@@ -155,11 +155,20 @@ int main(int argc, char **argv, char **envp)
         }
         else if(!strcmp("rmdir", tokens[0]))
         {
-            int index=1;
-            for(;index<i-1;index++)
+            int index=0;
+
+            for(;index<i-1;)
             {
-             if(rmdir(tokens[index]))
+              count=1;
+              char* dest=parser(i,tokens,index);
+              index=index+count;
+              if(dest)
+              {
+                printf("%s\n", dest  );
+              
+             if(rmdir(dest))
                 perror("Error");
+              }
             }
         }
         else if(!strcmp("ls", tokens[0]))
