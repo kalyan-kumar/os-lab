@@ -13,16 +13,65 @@
 
 char *hist_list[HISTSIZE];
 int cmd_count;
+int count=1;
 
-int getcw(char cwd[])
+
+char* parser(int i,char* tokens[],int ind)
 {
-   if (getcwd(cwd, sizeof(cwd)) != 0)
-      return 1;
-   else
-       perror("getcwd() error");
-   return 0;
-}
+     char* dest=(char*)malloc(100*sizeof(char));
+     if(1+ind>=i-1)
+      return NULL;
+    else if(i!=1)
+            { 
+                char* quote="\"";
+                char* slash="\\";
+                strcpy(dest,tokens[1+ind]);
+                int len=strlen(tokens[1+ind]);
 
+                if(strchr(quote,dest[0])!=NULL)
+                {
+                    if(strchr(quote,dest[len-1])!=NULL)
+                    {
+                        strncpy(dest,dest+1,len-2);
+                        dest[len-2]='\0';
+                    }
+                    else
+                    {
+
+                        int index=2;
+                        for(index=2;index+ind<i-1;index++)
+                        {
+                             if(strchr(quote,dest[len-1])!=NULL)
+                                break;
+                            char* space=" ";
+                            strcat(dest,space);
+                            strcat(dest,tokens[index+ind]);
+                            len=strlen(dest);
+                            strncpy(dest,dest+1,len-2);
+                            dest[len-2]='\0';
+                            count++;
+                        }
+                    }
+                }
+                else if(strchr(slash,dest[len-1])!=NULL)
+                {
+                    int index=2;
+                    for(index=2;index+ind<i-1;index++)
+                    {
+                        if(strchr(slash,dest[len-1])==NULL)
+                            break;
+                        char* space=" ";
+                        len=strlen(dest);
+                        dest[len-1]='\0';
+                        strcat(dest,space);
+                        strcat(dest,tokens[index+ind]);
+                        count++;
+                    }
+                }
+                
+            }
+         return dest;   
+}
 int main(int argc, char **argv, char **envp)
 {
     cmd_count = 0;
@@ -52,7 +101,7 @@ int main(int argc, char **argv, char **envp)
             tokens[i] = strtok(NULL, " ");
             i++;
         }
-
+        printf("%d\n",i );
         if(!strcmp("clear",tokens[0]))
         {
             printf("\e[2J\e[H");
@@ -65,51 +114,10 @@ int main(int argc, char **argv, char **envp)
         }
         else if(!strcmp("cd",tokens[0]))
         {
-            if(i!=1)
-            { 
-                char* dest=(char*)malloc(100*sizeof(char));
-                char* quote="\"";
-                char* slash="\\";
-                strcpy(dest,tokens[1]);
-                int len=strlen(tokens[1]);
-
-                if(strchr(quote,dest[0])!=NULL)
-                {
-                    if(strchr(quote,dest[len-1])!=NULL)
-                    {
-                        strncpy(dest,dest+1,len-2);
-                        dest[len-2]='\0';
-                    }
-                    else
-                    {
-
-                        int index=2;
-                        for(index=2;index<i;index++)
-                        {
-                            char* space=" ";
-                            strcat(dest,space);
-                            strcat(dest,tokens[index]);
-                            len=strlen(dest);
-                            strncpy(dest,dest+1,len-2);
-                            dest[len-2]='\0';
-                            printf("%s\n",dest   );
-                        }
-                    }
-                }
-                else if(strchr(slash,dest[len-1])!=NULL)
-                {
-                    int index=2;
-                    for(index=2;index<i;index++)
-                    {
-                        if(strchr(slash,dest[len-1])==NULL)
-                            break;
-                        char* space=" ";
-                        strcat(dest,space);
-                        strcat(dest,tokens[index]);
-                        printf("%s\n",dest   );
-                    }
-                }
-                int status=chdir(dest);
+            char* dest=parser(i,tokens,0);
+            if(dest!=NULL)
+            {
+              int status=chdir(dest);
                 if(status==-1)
                     perror("cd ");
             }
@@ -124,8 +132,22 @@ int main(int argc, char **argv, char **envp)
         else if(!strcmp("mkdir", tokens[0]))
         {
             struct stat st = {0};
-            if(mkdir(tokens[1], 0700))
+            int index=0;
+
+            for(;index<i-1;)
+            {
+              count=1;
+              char* dest=parser(i,tokens,index);
+              index=index+count;
+              if(dest)
+              {
+                printf("%s\n", dest  );
+              
+             if(mkdir(dest, 0700))
                 perror("Error");
+              }
+            }
+
             /*if(stat(tokens[1], &st) == -1)
                 mkdir(tokens[1], 0700);
             else
@@ -133,7 +155,12 @@ int main(int argc, char **argv, char **envp)
         }
         else if(!strcmp("rmdir", tokens[0]))
         {
-
+            int index=1;
+            for(;index<i-1;index++)
+            {
+             if(rmdir(tokens[index]))
+                perror("Error");
+            }
         }
         else if(!strcmp("ls", tokens[0]))
         {
