@@ -52,9 +52,13 @@ char* parser(int i,char* tokens[],int ind)
 {
     char* dest=(char*)malloc(100*sizeof(char));
     if(1+ind>=i-1)
+    {
+
         return NULL;
+    }
     else if(i!=1)
     { 
+
         char* quote="\"";
         char* slash="\\";
         strcpy(dest,tokens[1+ind]);
@@ -70,6 +74,7 @@ char* parser(int i,char* tokens[],int ind)
             else
             {
                 int index=2;
+
                 for(index=2;index+ind<i-1;index++)
                 {
                      if(strchr(quote,dest[len-1])!=NULL)
@@ -77,11 +82,17 @@ char* parser(int i,char* tokens[],int ind)
                     char* space=" ";
                     strcat(dest,space);
                     strcat(dest,tokens[index+ind]);
+                   
+
+                   
+                    
                     len=strlen(dest);
-                    strncpy(dest,dest+1,len-2);
-                    dest[len-2]='\0';
+                    
                     count++;
                 }
+                 len=strlen(dest);
+                 strncpy(dest,dest+1,len-2);
+                 dest[len-2]='\0';
             }
         }
         else if(strchr(slash,dest[len-1])!=NULL)
@@ -92,10 +103,11 @@ char* parser(int i,char* tokens[],int ind)
                 if(strchr(slash,dest[len-1])==NULL)
                     break;
                 char* space=" ";
-                len=strlen(dest);
                 dest[len-1]='\0';
                 strcat(dest,space);
                 strcat(dest,tokens[index+ind]);
+                len=strlen(dest);
+
                 count++;
             }
         }
@@ -110,6 +122,22 @@ int main(int argc, char **argv, char **envp)
     char cwd[1024], hist_loc[100];
     getcwd(hist_loc, 100);
     strcat(hist_loc, "/.nutshell_history");
+    int trig;
+    for(trig=0;trig<HISTSIZE;trig++)
+        hist_list[trig] = (char *)malloc(100*sizeof(char));
+    FILE *histfile = fopen(hist_loc, "r");
+    trig = 0;
+    if(histfile)
+    {
+        printf("Inside\n");
+        while(fgets(hist_list[trig], 100, histfile)!=NULL)
+        {
+            hist_list[trig][strlen(hist_list[trig])-1] = '\0';
+            trig++;
+        }
+        cmd_count = trig;
+        fclose(histfile);
+    }
     char write[100];
     while(1)
     { 
@@ -128,7 +156,6 @@ int main(int argc, char **argv, char **envp)
         char* tokens[100];
         tokens[0] = (char*)malloc(100*sizeof(char));
         tokens[0] = strtok(write, " ");
-
         while(tokens[i-1] != NULL)
         {
             tokens[i] = (char *)malloc(100*sizeof(char));
@@ -165,6 +192,7 @@ int main(int argc, char **argv, char **envp)
         }
         else if(!strcmp("mkdir", tokens[0]))
         {
+
             struct stat st = {0};
             int index=0;
             for(;index<i-1;)
@@ -174,9 +202,8 @@ int main(int argc, char **argv, char **envp)
                 index=index+count;
                 if(dest)
                 {
-                    printf("%s\n", dest);  
                     if(mkdir(dest, 0700))
-                        perror("Error");
+                        perror("Error ");
                 }
             }
         }
@@ -190,9 +217,8 @@ int main(int argc, char **argv, char **envp)
                 index=index+count;
                 if(dest)
                 {
-                    printf("%s\n", dest);
                     if(rmdir(dest))
-                        perror("Error");
+                        perror("Error ");
                 }
             }
         }
