@@ -4,6 +4,7 @@
 #include <string.h>
 #include <sys/stat.h>           // Necessary for stat used before mkdir
 #include <sys/types.h>          // Necessary for mkdir
+#include <sys/wait.h>
 #include <dirent.h>             // Necessary for directory streams
 #include <unistd.h>
 #include <time.h>
@@ -15,6 +16,55 @@ char *hist_list[HISTSIZE];
 int cmd_count;
 int count=1;
 
+void execute(char **args, char* now)
+{
+    char *path = getenv("PATH"), *tmp = now;
+    printf("Current working directory is - %s\n", tmp);
+    int status, ll, flag=0;
+    pid_t pidc, pid1;
+    DIR *ex_pa;
+    struct dirent *folder;
+    for(ll=0;tmp != NULL;ll++)
+    {
+        ex_pa = opendir(tmp);
+        printf("%s\n", tmp);
+        if(ex_pa)
+        {
+            while((folder=readdir(ex_pa))!=NULL)
+            {
+                if(!strcmp(folder->d_name,args[0]))
+                {
+                    flag = 1;
+                    if((pidc = fork()) < 0)
+                        perror("");
+                    else if(pidc == 0)
+                    {
+                        if(execvp(args[0], args) < 0)
+                            printf("Cannot execute");
+                        else
+                            printf("Successfully Executed\n");
+                        exit(1);
+                    }
+                    else
+                    {
+                        pid1 = wait(&status);
+                        kill(pid1, SIGKILL);
+                    }
+                    break;
+                }
+            }
+        }
+        else
+            perror("Cannot open directory");
+        if(flag==1)
+            break;
+        closedir(ex_pa);
+        if(ll==0)
+            tmp = strtok(path, ":");
+        if(ll>0)
+            tmp = strtok(NULL, ":");
+    }
+}
 
 char* parser(int i,char* tokens[],int ind)
 {
@@ -72,6 +122,7 @@ char* parser(int i,char* tokens[],int ind)
             }
          return dest;   
 }
+
 int main(int argc, char **argv, char **envp)
 {
     cmd_count = 0;
@@ -184,6 +235,8 @@ int main(int argc, char **argv, char **envp)
                         fprintf(stdout, "%s\n", dir->d_name);
                     closedir(d);
                 }
+                else
+                    perror("");
             }
             else
             {
@@ -259,7 +312,11 @@ int main(int argc, char **argv, char **envp)
         }
         else
         {
-
+            char *arguments[100];
+            int tte;
+            for(tte=0;tte<i-1;tte++)
+                arguments[tte] = tokens[tte];
+            execute(arguments, cwd);
         }
     }
 }
