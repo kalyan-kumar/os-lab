@@ -21,111 +21,81 @@ char *hist_list[HISTSIZE];
 int cmd_count;
 int count=1;
 
-void execute(char **args, char* now)
+void execute(char **args)
 {
-    char *path = getenv("PATH"), *tmp = now;
-    printf("Current working directory is - %s\n", tmp);
     int status, ll, flag=0;
     pid_t pidc, pid1;
-    DIR *ex_pa;
-    struct dirent *folder;
-    for(ll=0;tmp != NULL;ll++)
+    if((pidc = fork()) < 0)
+        perror("");
+    else if(pidc == 0)
     {
-        ex_pa = opendir(tmp);
-        printf("%s\n", tmp);
-        if(ex_pa)
-        {
-            while((folder=readdir(ex_pa))!=NULL)
-            {
-                if(!strcmp(folder->d_name,args[0]))
-                {
-                    flag = 1;
-                    if((pidc = fork()) < 0)
-                        perror("");
-                    else if(pidc == 0)
-                    {
-                        if(execvp(args[0], args) < 0)
-                            printf("Cannot execute");
-                        else
-                            printf("Successfully Executed\n");
-                        exit(1);
-                    }
-                    else
-                    {
-                        pid1 = wait(&status);
-                        kill(pid1, SIGKILL);
-                    }
-                    break;
-                }
-            }
-        }
+        if(execvp(args[0], args) < 0)
+            printf("Cannot execute");
         else
-            perror("Cannot open directory");
-        if(flag==1)
-            break;
-        closedir(ex_pa);
-        if(ll==0)
-            tmp = strtok(path, ":");
-        if(ll>0)
-            tmp = strtok(NULL, ":");
+            printf("Successfully Executed\n");
+        exit(1);
+    }
+    else
+    {
+        pid1 = wait(&status);
+        kill(pid1, SIGKILL);
     }
 }
 
 char* parser(int i,char* tokens[],int ind)
 {
-     char* dest=(char*)malloc(100*sizeof(char));
-     if(1+ind>=i-1)
-      return NULL;
+    char* dest=(char*)malloc(100*sizeof(char));
+    if(1+ind>=i-1)
+        return NULL;
     else if(i!=1)
-            { 
-                char* quote="\"";
-                char* slash="\\";
-                strcpy(dest,tokens[1+ind]);
-                int len=strlen(tokens[1+ind]);
+    { 
+        char* quote="\"";
+        char* slash="\\";
+        strcpy(dest,tokens[1+ind]);
+        int len=strlen(tokens[1+ind]);
 
-                if(strchr(quote,dest[0])!=NULL)
-                {
-                    if(strchr(quote,dest[len-1])!=NULL)
-                    {
-                        strncpy(dest,dest+1,len-2);
-                        dest[len-2]='\0';
-                    }
-                    else
-                    {
-
-                        int index=2;
-                        for(index=2;index+ind<i-1;index++)
-                        {
-                             if(strchr(quote,dest[len-1])!=NULL)
-                                break;
-                            char* space=" ";
-                            strcat(dest,space);
-                            strcat(dest,tokens[index+ind]);
-                            len=strlen(dest);
-                            strncpy(dest,dest+1,len-2);
-                            dest[len-2]='\0';
-                            count++;
-                        }
-                    }
-                }
-                else if(strchr(slash,dest[len-1])!=NULL)
-                {
-                    int index=2;
-                    for(index=2;index+ind<i-1;index++)
-                    {
-                        if(strchr(slash,dest[len-1])==NULL)
-                            break;
-                        char* space=" ";
-                        len=strlen(dest);
-                        dest[len-1]='\0';
-                        strcat(dest,space);
-                        strcat(dest,tokens[index+ind]);
-                        count++;
-                    }
-                }
-                
+        if(strchr(quote,dest[0])!=NULL)
+        {
+            if(strchr(quote,dest[len-1])!=NULL)
+            {
+                strncpy(dest,dest+1,len-2);
+                dest[len-2]='\0';
             }
-         return dest;   
+            else
+            {
+                int index=2;
+                for(index=2;index+ind<i-1;index++)
+                {
+                     if(strchr(quote,dest[len-1])!=NULL)
+                        break;
+                    char* space=" ";
+                    strcat(dest,space);
+                    strcat(dest,tokens[index+ind]);
+                    len=strlen(dest);
+                    strncpy(dest,dest+1,len-2);
+                    dest[len-2]='\0';
+                    count++;
+                }
+            }
+        }
+        else if(strchr(slash,dest[len-1])!=NULL)
+        {
+            int index=2;
+            for(index=2;index+ind<i-1;index++)
+            {
+                if(strchr(slash,dest[len-1])==NULL)
+                    break;
+                char* space=" ";
+                len=strlen(dest);
+                dest[len-1]='\0';
+                strcat(dest,space);
+                strcat(dest,tokens[index+ind]);
+                count++;
+            }
+        }
+                
+    }
+    return dest;   
 }
 
 int main(int argc, char **argv, char **envp)
@@ -157,7 +127,7 @@ int main(int argc, char **argv, char **envp)
             tokens[i] = strtok(NULL, " ");
             i++;
         }
-        printf("%d\n",i );
+        
         if(!strcmp("clear",tokens[0]))
         {
             printf("\e[2J\e[H");
@@ -173,7 +143,7 @@ int main(int argc, char **argv, char **envp)
             char* dest=parser(i,tokens,0);
             if(dest!=NULL)
             {
-              int status=chdir(dest);
+                int status=chdir(dest);
                 if(status==-1)
                     perror("cd ");
             }
@@ -189,42 +159,33 @@ int main(int argc, char **argv, char **envp)
         {
             struct stat st = {0};
             int index=0;
-
             for(;index<i-1;)
             {
-              count=1;
-              char* dest=parser(i,tokens,index);
-              index=index+count;
-              if(dest)
-              {
-                printf("%s\n", dest  );
-              
-             if(mkdir(dest, 0700))
-                perror("Error");
-              }
+                count=1;
+                char* dest=parser(i,tokens,index);
+                index=index+count;
+                if(dest)
+                {
+                    printf("%s\n", dest);  
+                    if(mkdir(dest, 0700))
+                        perror("Error");
+                }
             }
-
-            /*if(stat(tokens[1], &st) == -1)
-                mkdir(tokens[1], 0700);
-            else
-                perror("mkdir: cannot create directory ‘%s’: File exists\n");*/
         }
         else if(!strcmp("rmdir", tokens[0]))
         {
             int index=0;
-
             for(;index<i-1;)
             {
-              count=1;
-              char* dest=parser(i,tokens,index);
-              index=index+count;
-              if(dest)
-              {
-                printf("%s\n", dest  );
-              
-             if(rmdir(dest))
-                perror("Error");
-              }
+                count=1;
+                char* dest=parser(i,tokens,index);
+                index=index+count;
+                if(dest)
+                {
+                    printf("%s\n", dest);
+                    if(rmdir(dest))
+                        perror("Error");
+                }
             }
         }
         else if(!strcmp("ls", tokens[0]))
@@ -332,11 +293,7 @@ int main(int argc, char **argv, char **envp)
         }
         else
         {
-            char *arguments[100];
-            int tte;
-            for(tte=0;tte<i-1;tte++)
-                arguments[tte] = tokens[tte];
-            execute(arguments, cwd);
+            execute(tokens);
         }
     }
 }
