@@ -21,10 +21,16 @@ char *hist_list[HISTSIZE];
 int cmd_count;
 int count=1;
 
-void execute(char **args)
+void execute(char **args, int siz)
 {
-    int status, ll, flag=0;
+    int status, ll, flag=0, BG=0;
     pid_t pidc, pid1;
+    
+    if(args[siz-1][strlen(args[siz-1])-1] == '&')
+    {
+        args[siz-1][strlen(args[siz-1])-1] = '\0';
+        BG = 1;
+    }
     if((pidc = fork()) < 0)
         perror("");
     else if(pidc == 0)
@@ -37,7 +43,12 @@ void execute(char **args)
     }
     else
     {
-        pid1 = wait(&status);
+        if(BG==1)
+        {
+
+        }
+        else
+            pid1 = waitpid(pidc, &status, 0);
         kill(pid1, SIGKILL);
     }
 }
@@ -293,7 +304,7 @@ int main(int argc, char **argv, char **envp)
         }
         else
         {
-            execute(tokens);
+            execute(tokens, i-1);
         }
     }
 }
