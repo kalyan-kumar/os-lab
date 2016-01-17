@@ -43,13 +43,8 @@ void execute(char **args, int siz)
     }
     else
     {
-        if(BG==1)
-        {
-
-        }
-        else
+        if(BG==0)
             pid1 = waitpid(pidc, &status, 0);
-        kill(pid1, SIGKILL);
     }
 }
 
@@ -112,7 +107,9 @@ char* parser(int i,char* tokens[],int ind)
 int main(int argc, char **argv, char **envp)
 {
     cmd_count = 0;
-    char cwd[1024];
+    char cwd[1024], hist_loc[100];
+    getcwd(hist_loc, 100);
+    strcat(hist_loc, "/.nutshell_history");
     char write[100];
     while(1)
     { 
@@ -300,11 +297,18 @@ int main(int argc, char **argv, char **envp)
         }
         else if(!strcmp("exit", tokens[0]))
         {
+            FILE *histfile = fopen(hist_loc, "a");
+            int tree;
+            if(cmd_count > HISTSIZE)
+                tree = cmd_count%HISTSIZE;
+            else
+                tree = 0;
+            for(;tree<cmd_count;tree++)
+                fprintf(histfile, strcat(hist_list[tree%HISTSIZE],"\n"));
+            fclose(histfile);
             return 0;
         }
         else
-        {
             execute(tokens, i-1);
-        }
     }
 }
