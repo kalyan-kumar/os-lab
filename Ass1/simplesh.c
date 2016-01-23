@@ -1,3 +1,8 @@
+/*
+Garapaty Kalyan Kumar - 13CS10023
+Nitesh Sekhar         - 13CS10033
+*/
+
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
