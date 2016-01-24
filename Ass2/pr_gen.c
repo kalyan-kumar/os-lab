@@ -65,6 +65,7 @@ void availHandler(int sig, siginfo_t *siginfo, void *context)
         if(pid[x]==cur_pid)
             break;
     }
+    printf("Child number - %d\n", x);
     fnd = readFromPipe(pipes[(2*x)+1][0]);
     while(fnd!=-1)
     {
@@ -82,7 +83,7 @@ void availHandler(int sig, siginfo_t *siginfo, void *context)
         for(x=0;x<k;x++)
             kill(pid[x], SIGKILL);
         printf("Generated primes are -\n");
-        for(x=0;x<cur_gen;x++)
+        for(x=0;x<n;x++)
             printf("%d ", primes[x]);
         printf("\nExiting. Visit again. :)\n");
         exit(0);
@@ -166,11 +167,11 @@ int main(int argc, char **argv)
         test = readFromPipe(pipes[2*i][0]);
         while(test!=-1)
         {
-            printf("Child Process %d received %d\n", pid[i], test);
+            //printf("Child Process %d received %d\n", pid[i], test);
             if(isPrime(test))
                 writeToPipe(pipes[(2*i)+1][1], test);
             else
-                printf("Child Process %d - %d is not a prime", pid[i], test);
+                //printf("Child Process %d - %d is not a prime", pid[i], test);
             test = readFromPipe(pipes[2*i][0]);
         }
         sleep(2);
