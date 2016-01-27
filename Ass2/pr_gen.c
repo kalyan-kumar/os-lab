@@ -57,7 +57,6 @@ void sendTests(int x)
 
 void availHandler(int sig, siginfo_t *siginfo, void *context)
 {
-    printf("Inside availHandler\n");
     pid_t cur_pid = siginfo->si_pid;
     int x, fnd, it;
     for(x=0;x<k;x++)
@@ -65,7 +64,7 @@ void availHandler(int sig, siginfo_t *siginfo, void *context)
         if(pid[x]==cur_pid)
             break;
     }
-    printf("Child number - %d\n", x);
+    printf("Child %d is available.\n", x);
     fnd = readFromPipe(pipes[(2*x)+1][0]);
     while(fnd!=-1)
     {
@@ -90,7 +89,7 @@ void availHandler(int sig, siginfo_t *siginfo, void *context)
     }
     else
     {
-        printf("Sending primes to child number %d ...\n", x);
+        printf("Generating numbers to be send to child number %d ...\n", x);
         sendTests(x);
     }
 }
@@ -167,11 +166,8 @@ int main(int argc, char **argv)
         test = readFromPipe(pipes[2*i][0]);
         while(test!=-1)
         {
-            //printf("Child Process %d received %d\n", pid[i], test);
             if(isPrime(test))
                 writeToPipe(pipes[(2*i)+1][1], test);
-            else
-                //printf("Child Process %d - %d is not a prime", pid[i], test);
             test = readFromPipe(pipes[2*i][0]);
         }
         sleep(2);

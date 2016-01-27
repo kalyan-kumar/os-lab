@@ -21,13 +21,17 @@ Nitesh Sekhar         - 13CS10033
 #include <signal.h>
 #include <fcntl.h>
 
-
 #define HISTSIZE 100
 #define HISTFILESIZE 1000
 
 char *hist_list[HISTSIZE];
+char *input;
 int cmd_count, rev_sea;
 int count=1;
+int saved_stdin=0,inflag=0,outflag=0;
+int saved_stdout=1;
+int writefile,readfile;
+int saved_state_pipe_in,saved_state_pipe_out;
 
 int startsWith(const char *pre, const char *str)
 {
@@ -38,21 +42,21 @@ int startsWith(const char *pre, const char *str)
         return 1;
     return 0;
 }
-int redirect(int fd,int todup)
-        {
-            int saved_state;
-            saved_state = dup(fd);
-            // close(fd);
-            // int lel=dup(todup);
-            dup2(todup,fd);
-            return saved_state;
 
-        }
-        void restore(int saved_state,int fd)
-        {
-            dup2(saved_state, fd);
-            close(saved_state);    
-        }
+int redirect(int fd,int todup)
+{
+    int saved_state;
+    saved_state = dup(fd);
+    dup2(todup,fd);
+    return saved_state;
+}
+
+void restore(int saved_state,int fd)
+{
+    dup2(saved_state, fd);
+    close(saved_state);    
+}
+
 void execute(char **args, int siz)
 {
     int status, ll, flag=0, BG=0;
@@ -66,11 +70,8 @@ void execute(char **args, int siz)
     if((pidc = fork()) < 0)
         perror("");
     else if(pidc == 0)
-    {
-        if(execvp(args[0], args) < 0)
-            printf("Cannot execute");
-        else
-            printf("Successfully Executed\n");
+    {   
+        execvp(args[0], args);
         exit(1);
     }
     else
@@ -78,6 +79,81 @@ void execute(char **args, int siz)
         if(BG==0)
             pid1 = waitpid(pidc, &status, 0);
     }
+}
+char* check()
+{
+    char* dest=(char*)malloc(100*sizeof(char));
+		int flag=0;
+   	if(strstr(input,">")!=NULL)
+    {   
+				dest=strchr(input  ,'>');
+     		if(dest!=NULL)
+     		{  
+        		int length=strlen(dest);
+            strncpy(dest,dest+1,length-1);
+            dest[length-1]='\0';
+            writefile = open(dest, O_RDWR|O_CREAT,0666);
+            length=strlen(input)-strlen(dest);
+            strncpy(dest,input,length);
+            dest[length]='\0';
+            saved_stdout=redirect(1,writefile);
+            outflag=1;
+            flag=1;
+     		}   
+		}
+    if(strstr(input,"<")!=NULL)
+    { 
+    		char* sol=(char*)malloc(100*sizeof(char));
+        if(flag==0)
+        {
+        		dest=strchr(input,'<');
+          	strcpy(sol,input);
+        }
+        else
+        {
+        		strcpy(sol,dest);
+            dest=strchr(dest,'<');
+      	}
+        if(dest!=NULL)
+        {  
+        		int length=strlen(dest);
+            strncpy(dest,dest+1,length-1);
+            if(flag==0)
+            		dest[length-2]='\0';
+            else
+            		dest[length-1]='\0';
+            readfile = open(dest, O_RDWR|O_CREAT,0666);
+            if(flag==0)
+            {
+            		length=strlen(input)-strlen(dest);
+            		strncpy(dest,input,length);
+            		dest[length]='\0';
+            }
+            else
+            {
+              	length=strlen(sol)-strlen(dest);
+                strncpy(dest,sol,length-1);
+                dest[length-1]='\0';
+            }
+            saved_stdin=redirect(0,readfile);
+            inflag=1;
+        }   
+    }
+    return dest; 
+}
+
+int pipes(char *cmd, char command[100][400]){
+    char *pch;
+    int n = 0;
+    pch = strcpy(command[n], strtok(cmd, "|\n"));
+    while(pch != NULL)
+    {
+        n++;
+        pch = strtok(NULL, "|\n");
+        if(pch)
+            strcpy(command[n], pch);
+    }
+    return n;
 }
 
 char* parser(int i,char* tokens[],int ind)
@@ -149,7 +225,7 @@ int main(int argc, char **argv, char **envp)
     char cwd[1024], hist_loc[100];
     getcwd(hist_loc, 100);
     strcat(hist_loc, "/.nutshell_history");
-    int trig;
+    int trig, third_it1, third_it2;
     for(trig=0;trig<HISTSIZE;trig++)
         hist_list[trig] = (char *)malloc(100*sizeof(char));
     FILE *histfile = fopen(hist_loc, "r");  
@@ -164,258 +240,283 @@ int main(int argc, char **argv, char **envp)
         cmd_count = trig;
         fclose(histfile);
     }
-    char write[100];
+    char command[100], write[100][400];
     while(1)
-    { 
-        int i=1, len_sz;
+    {
+        int count=0;
+        int j=0;
+        if(inflag)
+        {
+            restore(saved_stdin,0);
+            close(readfile);
+        }
+        int i=1, len_sz, len_sz1;
         getcwd(cwd,sizeof(cwd));
         fprintf(stdout, "%s> ", cwd);
-        fgets (write, 100, stdin);
-        if(write[0]=='\n')
-                    continue;
-        len_sz = strlen(write);
-        char*input=(char*)malloc(100*sizeof(char));
-        strcpy(input,write);
-        if(write[len_sz-1]=='\n')
-            write[--len_sz] = '\0';
+        fgets (command, 100, stdin);
+        
+        if(command[0]=='\n')
+            continue;
+        len_sz1 = strlen(command);
+      	if(command[len_sz1-1]=='\n')
+        		command[len_sz1-1] = '\0';
         if(rev_sea ==1)
         {
             for(trig=cmd_count-1;trig>=0;trig--)
             {
-                if(startsWith(write, hist_list[trig]))
+                if(startsWith(command, hist_list[trig]))
                 {
-                    printf("%s\n", hist_list[trig]);
-                    strcpy(write, hist_list[trig]);
+                    strcpy(command, hist_list[trig]);
+                  	fprintf(stdout, "%s\n", command);
+                  	len_sz1 = strlen(command);
                     break;
                 }
             }
             rev_sea = 0;
         }
-        hist_list[cmd_count%HISTSIZE] = (char *)malloc(len_sz*(sizeof(char)));
-        strcpy(hist_list[cmd_count%HISTSIZE], write);
-        cmd_count++;
-        
-        char* tokens[100];
-        tokens[0] = (char*)malloc(100*sizeof(char));
-        tokens[0] = strtok(write, " ");
-        while(tokens[i-1] != NULL)
+       	int m=pipes(command,write);
+       	int fd[m-1][2];
+      	int x;
+        for(third_it1=0;third_it1<m;third_it1++)
         {
-            tokens[i] = (char *)malloc(100*sizeof(char));
-            tokens[i] = strtok(NULL, " ");
-            i++;
-        }
-        
-        if(!strcmp("clear",tokens[0]))
-        {
-            printf("\e[2J\e[H");
-        }
-      /*else if(strstr(input,">")!=NULL)
-                {   
-                    printf("%s\n",input );
-                    int saved_state;
-                    char* dest=(char*)malloc(100*sizeof(char));
-                     dest=strchr(input  ,'>');
-                     if(dest!=NULL)
-
-                     {  
-                            int length=strlen(dest);
-                            strncpy(dest,dest+1,length-1);
-                            dest[length-2]='\0';
-                             int filedesc = open(dest, O_RDWR|O_CREAT);
-                            // printf("%s\n", );
-                            if(filedesc < 0)
-                                return 1;
-
-                        printf("%s\n",dest );
-                            length=strlen(input)-strlen(dest);
-                            // getcommand(write);
-
-                            strncpy(dest,input,length);
-                            dest[length]='\0';
-                            printf("%s\n",dest );
-                           
-                            saved_state=redirect(1,filedesc);
-
-                           
-                           char* token[1]={"ls"};
-                           execute(token,1);
-                           restore(saved_state,1);
-                        
-                     }   
-
-                    // int saved_state=redirect(1,)
-                }*/
-        else if(!strcmp("env", tokens[0]))
-        {
-            char **env;
-            for(env=envp;*env!=0;env++)
-                fprintf(stdout, "%s\n", *env);
-        }
-        else if(!strcmp("cd",tokens[0]))
-        {
-            char* dest=parser(i,tokens,0);
-            if(dest!=NULL)
+            if(m-1!=0)
             {
-                int status=chdir(dest);
-                if(status==-1)
-                    perror("cd ");
-            }
+                pipe(fd[j]);
+
+                if(j==0){
+                    saved_state_pipe_out = redirect(1,fd[j][1]);
+                }
+                if(j>0 && j<m-1){
+                    x = redirect(fd[j-1][1],fd[j][1]);
+                    close(x);
+                }
+                if(j==1){
+                    saved_state_pipe_in = redirect(0,fd[j-1][0]); 
+                }
+                if(j > 1){
+                    x = redirect(fd[j-2][0],fd[j-1][0]);
+                    close(x);
+                }
+                if(j == m-1){
+                    restore(saved_state_pipe_out,1);
+                    close(fd[j-1][1]);
+                }
+            }	
+            j++;
+            if(third_it1==len_sz1)
+                third_it1++;
+            len_sz = strlen(write[third_it1]);
+            input=(char*)malloc(100*sizeof(char));
+            strcpy(input,write[third_it1]);
+            if(write[third_it1][len_sz-1]=='\n')
+                write[third_it1][--len_sz] = '\0';
+            if(strchr(write[third_it1],'>')!=NULL || strchr(write[third_it1],'<')!=NULL)
+                strcpy(write[third_it1],check());
             else
-                chdir(getenv("HOME"));
-        }
-        else if(!strcmp("pwd",tokens[0]))
-        {
-            getcwd(cwd,sizeof(cwd));
-            fprintf(stdout, "%s\n", cwd);
-        }
-        else if(!strcmp("mkdir", tokens[0]))
-        {
-
-            struct stat st = {0};
-            int index=0;
-            for(;index<i-1;)
             {
-                count=1;
-                char* dest=parser(i,tokens,index);
-                index=index+count;
-                if(dest)
-                {
-                    if(mkdir(dest, 0700))
-                        perror("Error ");
-                }
+                inflag=0;
+                outflag=0;
             }
-        }
-        else if(!strcmp("rmdir", tokens[0]))
-        {
-            int index=0;
-            for(;index<i-1;)
-            {
-                count=1;
-                char* dest=parser(i,tokens,index);
-                index=index+count;
-                if(dest)
-                {
-                    if(rmdir(dest))
-                        perror("Error ");
-                }
-            }
-        }
-        else if(!strcmp("ls", tokens[0]))
-        {
-            DIR *d;
-            struct dirent *dp;
-            struct stat     statbuf;
-            struct passwd  *pwd;
-            struct group   *grp;
-            struct tm      *tm;
-            char            datestring[256];
+            hist_list[cmd_count%HISTSIZE] = (char *)malloc(len_sz*(sizeof(char)));
+            strcpy(hist_list[cmd_count%HISTSIZE], write[third_it1]);
+            cmd_count++;
 
-            if(i==2)
+            char* tokens[100];
+            tokens[0] = (char*)malloc(100*sizeof(char));
+            tokens[0] = strtok(write[third_it1], " ");
+            while(tokens[i-1] != NULL)
+            {   
+                tokens[i] = (char *)malloc(100*sizeof(char));
+                tokens[i] = strtok(NULL, " ");
+                i++;
+            }
+
+            if(!strcmp("clear",tokens[0]))
             {
-                d = opendir(cwd);
-                if(d)
+                printf("\e[2J\e[H");
+            }
+            else if(!strcmp("env", tokens[0]))
+            {
+                char **env;
+                for(env=envp;*env!=0;env++)
+                    fprintf(stdout, "%s\n", *env);
+            }
+            else if(!strcmp("cd",tokens[0]))
+            {
+                char* dest=parser(i,tokens,0);
+                if(dest!=NULL)
                 {
-                    while((dp=readdir(d))!=NULL)
+                    int status=chdir(dest);
+                    if(status==-1)
+                        perror("cd ");
+                }
+                else
+                    chdir(getenv("HOME"));
+            }
+            else if(!strcmp("pwd",tokens[0]))
+            {
+                getcwd(cwd,sizeof(cwd));
+                fprintf(stdout, "%s\n", cwd);
+            }
+            else if(!strcmp("mkdir", tokens[0]))
+            {
+
+                struct stat st = {0};
+                int index=0;
+                for(;index<i-1;)
+                {
+                    count=1;
+                    char* dest=parser(i,tokens,index);
+                    index=index+count;
+                    if(dest)
                     {
-                        if(strcmp(dp->d_name,".")!=0 && strcmp(dp->d_name,"..")!=0)
+                        if(mkdir(dest, 0700))
+                            perror("Error ");
+                    }
+                }
+            }
+            else if(!strcmp("rmdir", tokens[0]))
+            {
+                int index=0;
+                for(;index<i-1;)
+                {
+                    count=1;
+                    char* dest=parser(i,tokens,index);
+                    index=index+count;
+                    if(dest)
+                    {
+                        if(rmdir(dest))
+                            perror("Error ");
+                    }
+                }
+            }
+            else if(!strcmp("ls", tokens[0]))
+            {
+                DIR *d;
+                struct dirent *dp;
+                struct stat     statbuf;
+                struct passwd  *pwd;
+                struct group   *grp;
+                struct tm      *tm;
+                char            datestring[256];
+
+                if(i==2)
+                {
+                    d = opendir(cwd);
+                    if(d)
+                    {
+                        while((dp=readdir(d))!=NULL)
+                        {
+                            if(strcmp(dp->d_name,".")!=0 && strcmp(dp->d_name,"..")!=0)
                                 fprintf(stdout, "%s\n", dp->d_name);
+                        }
                     }
+                    else
+                        perror("");
+                    closedir(d);
                 }
                 else
-                    perror("");
-                closedir(d);
-            }
-            else
-            {
-                d = opendir(cwd);
-                if(d)
                 {
-                    while((dp=readdir(d))!=NULL)
+                    d = opendir(cwd);
+                    if(d)
                     {
-                        /* Get entry's information. */
-                        if (stat(dp->d_name, &statbuf) == -1)
-                            continue;
-                        
-                        /* Print out type, permissions, and number of links. */
-                        printf( (S_ISDIR(statbuf.st_mode)) ? "d" : "-");
-                        printf( (statbuf.st_mode & S_IRUSR) ? "r" : "-");
-                        printf( (statbuf.st_mode & S_IWUSR) ? "w" : "-");
-                        printf( (statbuf.st_mode & S_IXUSR) ? "x" : "-");
-                        printf( (statbuf.st_mode & S_IRGRP) ? "r" : "-");
-                        printf( (statbuf.st_mode & S_IWGRP) ? "w" : "-");
-                        printf( (statbuf.st_mode & S_IXGRP) ? "x" : "-");
-                        printf( (statbuf.st_mode & S_IROTH) ? "r" : "-");
-                        printf( (statbuf.st_mode & S_IWOTH) ? "w" : "-");
-                        printf( (statbuf.st_mode & S_IXOTH) ? "x" : "-");
-                        printf("%4d", statbuf.st_nlink);
+                        while((dp=readdir(d))!=NULL)
+                        {
+                            /* Get entry's information. */
+                            if (stat(dp->d_name, &statbuf) == -1)
+                                continue;
 
-                        /* Print out owner's name if it is found using getpwuid(). */
-                        if ((pwd = getpwuid(statbuf.st_uid)) != NULL)
-                            printf(" %-8.8s", pwd->pw_name);
-                        else
-                            printf(" %-8d", statbuf.st_uid);
+                            /* Print out type, permissions, and number of links. */
+                            printf( (S_ISDIR(statbuf.st_mode)) ? "d" : "-");
+                            printf( (statbuf.st_mode & S_IRUSR) ? "r" : "-");
+                            printf( (statbuf.st_mode & S_IWUSR) ? "w" : "-");
+                            printf( (statbuf.st_mode & S_IXUSR) ? "x" : "-");
+                            printf( (statbuf.st_mode & S_IRGRP) ? "r" : "-");
+                            printf( (statbuf.st_mode & S_IWGRP) ? "w" : "-");
+                            printf( (statbuf.st_mode & S_IXGRP) ? "x" : "-");
+                            printf( (statbuf.st_mode & S_IROTH) ? "r" : "-");
+                            printf( (statbuf.st_mode & S_IWOTH) ? "w" : "-");
+                            printf( (statbuf.st_mode & S_IXOTH) ? "x" : "-");
+                            printf("%4d", statbuf.st_nlink);
 
-                        /* Print out group name if it is found using getgrgid(). */
-                        if ((grp = getgrgid(statbuf.st_gid)) != NULL)
-                            printf(" %-8.8s", grp->gr_name);
-                        else
-                            printf(" %-8d", statbuf.st_gid);
+                            /* Print out owner's name if it is found using getpwuid(). */
+                            if ((pwd = getpwuid(statbuf.st_uid)) != NULL)
+                                printf(" %-8.8s", pwd->pw_name);
+                            else
+                                printf(" %-8d", statbuf.st_uid);
 
-                        /* Print size of file. */
-                        printf(" %9jd", (intmax_t)statbuf.st_size);
-                        
-                        /* Get localized date string. */
-                        tm = localtime(&statbuf.st_mtime);
-                        strftime(datestring, sizeof(datestring), nl_langinfo(D_T_FMT), tm);
-                        printf(" %s %s\n", datestring, dp->d_name);
+                            /* Print out group name if it is found using getgrgid(). */
+                            if ((grp = getgrgid(statbuf.st_gid)) != NULL)
+                                printf(" %-8.8s", grp->gr_name);
+                            else
+                                printf(" %-8d", statbuf.st_gid);
+
+                            /* Print size of file. */
+                            printf(" %9jd", (intmax_t)statbuf.st_size);
+
+                            /* Get localized date string. */
+                            tm = localtime(&statbuf.st_mtime);
+                            strftime(datestring, sizeof(datestring), nl_langinfo(D_T_FMT), tm);
+                            printf(" %s %s\n", datestring, dp->d_name);
+                        }
                     }
+                    else
+                        perror("");
+                    closedir(d);
+                }
+            }
+            else if(!strcmp("history", tokens[0]))
+            {
+                int tere;
+                if(i!=2)
+                {
+                    char *pEnd;
+                    int x = strtol(tokens[1], &pEnd, 10);
+                    if(x>cmd_count || x > HISTSIZE)
+                    {
+                        if(cmd_count > HISTSIZE)
+                            tere = cmd_count%HISTSIZE;
+                        else
+                            tere = 0;
+                    }
+                    else
+                        tere = cmd_count-x;
                 }
                 else
-                    perror("");
-                closedir(d);
-            }
-        }
-        else if(!strcmp("history", tokens[0]))
-        {
-            int tere;
-            if(i!=2)
-            {
-                char *pEnd;
-                int x = strtol(tokens[1], &pEnd, 10);
-                if(x>cmd_count || x > HISTSIZE)
                 {
                     if(cmd_count > HISTSIZE)
                         tere = cmd_count%HISTSIZE;
                     else
                         tere = 0;
                 }
-                else
-                    tere = cmd_count-x;
+                for(;tere<cmd_count;tere++)
+                    fprintf(stdout, "%d %s\n", tere+1,hist_list[tere%HISTSIZE]);
             }
-            else
+            else if(!strcmp("exit", tokens[0]))
             {
+                FILE *histfile = fopen(hist_loc, "w");
+                int tree;
                 if(cmd_count > HISTSIZE)
-                    tere = cmd_count%HISTSIZE;
+                    tree = cmd_count%HISTSIZE;
                 else
-                    tere = 0;
+                    tree = 0;
+                for(;tree<cmd_count;tree++)
+                    fprintf(histfile, strcat(hist_list[tree%HISTSIZE],"\n"));
+                fclose(histfile);
+                return 0;
             }
-            for(;tere<cmd_count;tere++)
-                fprintf(stdout, "%d %s\n", tere+1,hist_list[tere%HISTSIZE]);
-        }
-        else if(!strcmp("exit", tokens[0]))
-        {
-            FILE *histfile = fopen(hist_loc, "w");
-            int tree;
-            if(cmd_count > HISTSIZE)
-                tree = cmd_count%HISTSIZE;
             else
-                tree = 0;
-            for(;tree<cmd_count;tree++)
-                fprintf(histfile, strcat(hist_list[tree%HISTSIZE],"\n"));
-            fclose(histfile);
-            return 0;
+                execute(tokens, i-1);
+            if(outflag)
+            {
+                restore(saved_stdout,1);
+                close(writefile);
+            }
         }
-        else
-            execute(tokens, i-1);
+        if(j>1)
+        {
+        		restore(saved_state_pipe_in,0);
+        		close(fd[j-2][0]);
+        }
     }
 }
