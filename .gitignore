@@ -26,3 +26,6 @@
 *.exe
 *.out
 *.app
+
+# History file
+*.nutshell_history
