@@ -1,9 +1,12 @@
 #include <time.h>
 #include <stdio.h>
-#include <stlib.h>
+#include <stdlib.h>
 #include <signal.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/types.h>
+#include <sys/ipc.h>
+#include <sys/msg.h>
 
 struct my_msgbuf {
 	long mtype;
@@ -23,6 +26,7 @@ void suspend(int sig)
 
 int main(int argc, char *argv[])
 {
+	printf("Started\n");
 	srand(time(NULL));
 	if(argc < 5)
 	{
@@ -41,9 +45,6 @@ int main(int argc, char *argv[])
 	pid_t pid=getpid(), sched_pid;
 	struct my_msgbuf buf;
 
-	buf.pid = pid;
-	buf.prior = priority;
-
 	if ((key = ftok("sched.c", 'H')) == -1) {
 		perror("ftok");
 		exit(1);
@@ -56,20 +57,21 @@ int main(int argc, char *argv[])
 	signal(SIGUSR1, notify);
 	signal(SIGUSR2, suspend);
 
-	if (msgsnd(msqid, &buf, sizeof(struct my_msgbuf), 0) == -1) /* +1 for '\0' */
+	buf.mtype = 1;
+	buf.pid = pid;
+	buf.prior = priority;
+
+	if(msgsnd(msqid, &buf, sizeof(struct my_msgbuf), 0) == -1)
 	{
 		perror("msgsnd");
 		exit(1);
 	}
-	if (msgrcv(msqid, &buf, sizeof (struct my_msgbuf), getppid(), 0) == -1)
+	if(msgrcv(msqid, &buf, sizeof (struct my_msgbuf), getppid(), 0) == -1)
 	{
 		perror("msgrcv");
 		exit(1);
 	}
 	sched_pid = buf.pid;
-
-	buf.pid = pid;
-	buf.prior = priority;
 
 	for(i=0;i<noi;i++)
 	{
@@ -78,11 +80,26 @@ int main(int argc, char *argv[])
 		if(slp_now < slp_prob)
 		{
 			kill(sched_pid, SIGUSR1);
-			printf("PID:%d Going for IO", pid, i+1);
+			printf("PID:%d Going for IO", pid);
 			sleep(slp_time);
-			if (msgsnd(msqid, &buf, sizeof(struct my_msgbuf), 0) == -1) /* +1 for '\0' */
+			if (msgsnd(msqid, &buf, sizeof(struct my_msgbuf), 0) == -1)
 				perror("msgsnd");
-			printf("PID:%d Back from IO", pid, i+1);
+			printf("PID:%d Back from IO", pid);
+			buf.mtype = 1;
+			buf.pid = pid;
+			buf.prior = priority;
+			if(msgsnd(msqid, &buf, sizeof(struct my_msgbuf), 0) == -1)
+			{
+				perror("msgsnd");
+				exit(1);
+			}
+			if(msgrcv(msqid, &buf, sizeof (struct my_msgbuf), getppid(), 0) == -1)
+			{
+				perror("msgrcv");
+				exit(1);
+			}
+			sched_pid = buf.pid;
+			suspend(1);
 		}
 	}
 	kill(sched_pid, SIGUSR2);

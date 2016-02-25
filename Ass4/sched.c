@@ -3,8 +3,12 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <sys/types.h>
+#include <sys/ipc.h>
+#include <sys/msg.h>
 
 #define TIME_QUANTUM 1000
+#define PROC_LIMIT 10000
 
 int preempt;
 
@@ -14,10 +18,23 @@ struct my_msgbuf {
 	int prior;
 };
 
+void interchange(struct my_msgbuf *a, struct my_msgbuf *b)
+{
+	struct my_msgbuf tmp;
+	tmp.mtype = a->mtype;
+	tmp.pid = a->pid;
+	tmp.prior = a->prior;
+	a->mtype = b->mtype;
+	a->pid = b->pid;
+	a->prior = b->prior;
+	b->mtype = tmp.mtype;
+	b->pid = tmp.pid;
+	b->prior = tmp.prior;
+}
+
 void heapify(struct my_msgbuf *A, int n, int pos)
 {
 	int i, x;
-	struct my_msgbuf tmp;
 	for(i=pos;i<n;)
 	{
 		x = -1;
@@ -32,9 +49,7 @@ void heapify(struct my_msgbuf *A, int n, int pos)
 			x = 2*i;
 		if(x != -1 && A[x].prior > A[i].prior)
 		{
-			tmp = A[x];
-			A[x] = A[i];
-			A[i] = tmp;
+			interchange(&A[i], &A[x]);
 			i = x;
 		}
 		else 
@@ -62,44 +77,94 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-	int msqid, i, x, running, suspending, tq = TIME_QUANTUM;
+	int msqid, i, x, running, tq = TIME_QUANTUM, qu_size=0, start=0, end=0;
 	key_t key;
 	pid_t pid=getpid(), sched_pid;
 	struct my_msgbuf buf;
 
-	buf.pid = pid;
-	buf.prior = priority;
-
-	if ((key = ftok("sched.c", 'H')) == -1) {
+	if((key = ftok("sched.c", 'H')) == -1)
+	{
 		perror("ftok");
 		exit(1);
 	}
-	if ((msqid = msgget(key, 0644 )) == -1) {
+	if((msqid = msgget(key, 0644 )) == -1)
+	{
 		perror("msgget");
 		exit(1);
 	}
-
-
-	struct my_msgbuf A[100000];
-
+	struct my_msgbuf A[PROC_LIMIT];
 	while(1)
 	{
 		signal(SIGUSR1, changeIt);
+		signal(SIGUSR2, changeIt);
+
+		while(msgrcv(msqid, &buf, sizeof (struct my_msgbuf), 0, IPC_NOWAIT) != -1)
+		{
+			if(argv[1]=="P-RR")
+			{
+				interchange(&A[++qu_size], &buf);
+				makeHeap(A, qu_size);
+			}
+			else
+			{
+				interchange(&A[end++], &buf);
+			}
+			buf.mtype = 1;
+			buf.pid = getpid();
+			buf.prior = 0;
+			if(msgsnd(msqid, &buf, sizeof(struct my_msgbuf), 0) == -1)
+			{
+				perror("msgsnd");
+				exit(1);
+			}
+		}
 		if(argv[1]=="P-RR")
-			running = 0;			// Get the process here
+		{
+			if(qu_size==0)
+				continue;
+			running = 1;
+		}
 		else
-			running = 0;			// Get the process here
+		{
+			if(start==end-1)
+				continue;
+			running = start;
+		}
 		preempt = 0;
 		for(i=0;i<tq;i++)
 		{
 			if(preempt==1)
 			{
-				// Add code to remove the process here
-				suspending = running;
+				if(!strcmp(argv[1], "P-RR"))
+				{
+					interchange(&A[running], &A[qu_size]);
+					qu_size--;
+					heapify(A, qu_size, 1);
+				}
+				else
+				{
+					start++;
+					start %= PROC_LIMIT;
+				}
 				break;
 			}
 		}
 		if(i==tq)
-			kill(A[suspending].pid, SIGUSR1);
+		{
+			kill(A[running].pid, SIGUSR1);
+			if(!strcmp(argv[1], "P-RR"))
+			{
+				interchange(&A[running], &A[qu_size]);
+				makeHeap(A, qu_size);
+			}
+			else
+			{
+				interchange(&A[start], &A[end]);
+				start++;
+				start %= PROC_LIMIT;
+				end++;
+				end %= PROC_LIMIT;
+			}
+		}
 	}
 }
