@@ -8,8 +8,7 @@
 int main()
 {
 	int n=2;
-	//printf("Enter the number of process\n");
-	//scanf("%d",&n);
+	
 	while(n--)
 	{
 		int N=10000,priority=10,slptime=1;
@@ -21,11 +20,6 @@ int main()
 		
 		sprintf(arg,"xterm -hold -e ./process %d %d %f %d",N,priority,slpprob,slptime);
 		printf("here\n");
-		// execl("/usr/bin/xterm", "/usr/bin/xterm", "-e", "bash", "-c", "arg", (void*)NULL);
-// 			if ( (execlp("xterm","xterm","-hold","-e",arg, "127.0.0.1", (char *) 0)) < 0)  {
-// 				  printf("Failed to Start the Echo Client. Exiting application.");
-// 				  return 1;
-// }	
 		if(fork())
 			sleep(1);
 		else

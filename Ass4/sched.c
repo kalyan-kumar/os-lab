@@ -7,7 +7,9 @@
 #include <sys/ipc.h>
 #include <sys/msg.h>
 
-#define TIME_QUANTUM 1000
+#define TIME_QUANTUM1 1000
+#define TIME_QUANTUM2 2000
+
 #define PROC_LIMIT 10000
 
 int preempt;
@@ -77,48 +79,54 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-	int msqid, i, x, running, tq = TIME_QUANTUM, qu_size=0, start=0, end=0;
+	int msqid, i, x, running, tq = 0, qu_size=0, start=0, end=0;
 	key_t key;
 	pid_t pid=getpid(), sched_pid;
 	struct my_msgbuf buf;
 
-	if((key = ftok("sched.c", 'H')) == -1)
+	if((key = ftok("gen.c", 'A')) == -1)
 	{
 		perror("ftok");
 		exit(1);
 	}
-	if((msqid = msgget(key, 0644 )) == -1)
+	if((msqid = msgget(key, 0644|IPC_CREAT )) == -1)
 	{
 		perror("msgget");
 		exit(1);
 	}
 	struct my_msgbuf A[PROC_LIMIT];
+
 	while(1)
 	{
 		signal(SIGUSR1, changeIt);
 		signal(SIGUSR2, changeIt);
 
-		while(msgrcv(msqid, &buf, sizeof (struct my_msgbuf), 0, IPC_NOWAIT) != -1)
+		while(msgrcv(msqid, &buf, sizeof (struct my_msgbuf), 5, IPC_NOWAIT) != -1)
 		{
-			if(argv[1]=="P-RR")
+			if(buf.prior!=0)
 			{
-				interchange(&A[++qu_size], &buf);
-				makeHeap(A, qu_size);
-			}
-			else
-			{
-				interchange(&A[end++], &buf);
-			}
-			buf.mtype = 1;
-			buf.pid = getpid();
-			buf.prior = 0;
-			if(msgsnd(msqid, &buf, sizeof(struct my_msgbuf), 0) == -1)
-			{
-				perror("msgsnd");
-				exit(1);
+				 if(!strcmp(argv[1],"P-RR"))
+				{	
+					printf("lellol\n");
+					interchange(&A[++qu_size], &buf);
+					makeHeap(A, qu_size);
+				}
+				else
+				{
+					interchange(&A[end++], &buf);
+				}
+				buf.mtype = 1;
+				buf.pid = getpid();
+				buf.prior = 0;
+				if(msgsnd(msqid, &buf, sizeof(struct my_msgbuf), 0) == -1)
+				{
+					perror("msgsnd");
+					exit(1);
+				}
 			}
 		}
-		if(argv[1]=="P-RR")
+
+		if(!strcmp(argv[1],"P-RR"))
 		{
 			if(qu_size==0)
 				continue;
@@ -131,6 +139,16 @@ int main(int argc, char *argv[])
 			running = start;
 		}
 		preempt = 0;
+		if(A[running].prior==5)
+			tq=TIME_QUANTUM2;
+		else
+			tq=TIME_QUANTUM1;
+		kill(A[running].pid, SIGUSR1);
+		for(i=0;i<=running;i++)
+			printf("%d is running now\n", A[i].pid );
+		//getchar();
+
+		
 		for(i=0;i<tq;i++)
 		{
 			if(preempt==1)
@@ -150,8 +168,8 @@ int main(int argc, char *argv[])
 			}
 		}
 		if(i==tq)
-		{
-			kill(A[running].pid, SIGUSR1);
+		{	
+			kill(A[running].pid, SIGUSR2);
 			if(!strcmp(argv[1], "P-RR"))
 			{
 				interchange(&A[running], &A[qu_size]);
