@@ -16,6 +16,7 @@ int preempt;
 
 struct my_msgbuf {
 	long mtype;
+	int pseudo;
 	int pid;
 	int prior;
 };
@@ -115,7 +116,8 @@ int main(int argc, char *argv[])
 				{
 					interchange(&A[end++], &buf);
 				}
-				buf.mtype = 1;
+				buf.mtype = buf.pseudo;
+				buf.pseudo = 0;
 				buf.pid = getpid();
 				buf.prior = 0;
 				if(msgsnd(msqid, &buf, sizeof(struct my_msgbuf), 0) == -1)

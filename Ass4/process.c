@@ -13,18 +13,21 @@
 
 struct my_msgbuf {
 	long mtype;
+	int pseudo;
 	int pid;
 	int prior;
 };
 
 void notify(int sig)
 {
-
+	printf("Received signal notify\n");
 }
 
 void suspend(int sig)
 {
+	printf("Received signal suspend\n");
 	pause();
+	printf("Woke up from pause\n");
 }
 
 int main(int argc, char *argv[])
@@ -36,12 +39,13 @@ int main(int argc, char *argv[])
 		printf("Pass arguments correctly\n");
 		exit(0);
 	}
-	int noi, priority, slp_time;
+	int noi, priority, slp_time, spid;
 	float slp_prob, slp_now;
 	noi = atoi(argv[1]);
 	priority = atoi(argv[2]);
 	slp_prob = atof(argv[3]);
 	slp_time = atoi(argv[4]);
+	spid = atoi(argv[5]);
 	
 	int msqid, i, x;
 	key_t key;
@@ -61,6 +65,7 @@ int main(int argc, char *argv[])
 	signal(SIGUSR2, suspend);
 
 	buf.mtype = 5;
+	buf.pseudo = spid;
 	buf.pid = pid;
 	buf.prior = priority;
 
@@ -69,7 +74,7 @@ int main(int argc, char *argv[])
 		perror("msgsnd");
 		exit(1);
 	}
-	if(msgrcv(msqid, &buf, sizeof (struct my_msgbuf), 1, 0) ==-1)
+	if(msgrcv(msqid, &buf, sizeof (struct my_msgbuf), spid, 0) ==-1)
 	{
 		if(errno!=EINTR)
 		{
@@ -78,7 +83,7 @@ int main(int argc, char *argv[])
 		}
 	}
 	printf("Finally\n");
-	suspend(1);
+	suspend(SIGUSR2);
 	sched_pid = buf.pid;
 
 	printf("%f\n",slp_prob);
@@ -96,6 +101,7 @@ int main(int argc, char *argv[])
 
 			printf("PID:%d Back from IO\n", pid);
 			buf.mtype = 5;
+			buf.pseudo = spid;
 			buf.pid = pid;
 			buf.prior = priority;
 			if(msgsnd(msqid, &buf, sizeof(struct my_msgbuf), 0) == -1)
@@ -103,7 +109,8 @@ int main(int argc, char *argv[])
 				perror("msgsnd");
 				exit(1);
 			}
-			if(msgrcv(msqid, &buf, sizeof (struct my_msgbuf), 1, 0) == -1)
+			printf("Sent message\n");
+			if(msgrcv(msqid, &buf, sizeof (struct my_msgbuf), spid, 0) == -1)
 			{
 				if(errno!=EINTR)
 				{
@@ -111,11 +118,12 @@ int main(int argc, char *argv[])
 					exit(1);
 				}
 			}
+			printf("Received message\n");
 			sched_pid = buf.pid;
 			signal(SIGUSR1, notify);
 			signal(SIGUSR2, suspend);
 
-			suspend(1);
+			suspend(SIGUSR2);
 		}
 	}
 	kill(sched_pid, SIGUSR2);

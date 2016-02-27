@@ -6,7 +6,7 @@
 #include <unistd.h>
 int main()
 {
-	int n=2;
+	int spid=42, n=2;
 	while(n--)
 	{
 		int N=10000,priority=10,slptime=1;
@@ -14,7 +14,8 @@ int main()
 		
 		char arg[100];
 		memset(arg,0,100);
-		sprintf(arg,"xterm -hold -e ./process %d %d %f %d",N,priority,slpprob,slptime);
+		sprintf(arg,"xterm -hold -e ./process %d %d %f %d %d",N,priority,slpprob,slptime,spid);
+		spid++;
 		printf("here\n");
 		if(!fork())
 		{
@@ -30,7 +31,8 @@ int main()
 		float slpprob=0.7;
 		char arg[100];
 		memset(arg,0,100);
-		sprintf(arg,"xterm -hold -e ./process %d %d %f %d",N,priority,slpprob,slptime);
+		sprintf(arg,"xterm -hold -e ./process %d %d %f %d %d",N,priority,slpprob,slptime,spid);
+		spid++;
 		printf("here\n");
 		if(!fork())
 		{
