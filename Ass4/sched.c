@@ -42,14 +42,14 @@ void heapify(struct my_msgbuf *A, int n, int pos)
 		x = -1;
 		if(((2*i)+1)<n)
 		{
-			if(A[(2*i)+1].prior > A[2*i].prior)
+			if(A[(2*i)+1].prior < A[2*i].prior)
 				x = (2*i)+1;
 			else
 				x = 2*i;
 		}
 		else if(2*i < n)
 			x = 2*i;
-		if(x != -1 && A[x].prior > A[i].prior)
+		if(x != -1 && A[x].prior < A[i].prior)
 		{
 			interchange(&A[i], &A[x]);
 			i = x;
@@ -134,7 +134,7 @@ int main(int argc, char *argv[])
 		}
 		else
 		{
-			if(start==end-1)
+			if(start==end)
 				continue;
 			running = start;
 		}
@@ -144,8 +144,8 @@ int main(int argc, char *argv[])
 		else
 			tq=TIME_QUANTUM1;
 		kill(A[running].pid, SIGUSR1);
-		for(i=0;i<=running;i++)
-			printf("%d is running now\n", A[i].pid );
+		nanosleep(1000);
+		printf("%d is running now\n", A[running].pid );
 		//getchar();
 
 		
@@ -159,7 +159,7 @@ int main(int argc, char *argv[])
 					qu_size--;
 					heapify(A, qu_size, 1);
 				}
-				else
+				else  
 				{
 					start++;
 					start %= PROC_LIMIT;
@@ -170,6 +170,7 @@ int main(int argc, char *argv[])
 		if(i==tq)
 		{	
 			kill(A[running].pid, SIGUSR2);
+			nanosleep(1);
 			if(!strcmp(argv[1], "P-RR"))
 			{
 				interchange(&A[running], &A[qu_size]);

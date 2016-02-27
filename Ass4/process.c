@@ -89,8 +89,11 @@ int main(int argc, char *argv[])
 		if(slp_now < slp_prob)
 		{
 			kill(sched_pid, SIGUSR1);
-			printf("PID:%d Going for IO\n", pid);
+			printf("PID %d Going to IO\n", pid);
+			signal(SIGUSR2,SIG_IGN);
+			signal(SIGUSR1,SIG_IGN);
 			sleep(slp_time);
+
 			printf("PID:%d Back from IO\n", pid);
 			buf.mtype = 5;
 			buf.pid = pid;
@@ -109,6 +112,9 @@ int main(int argc, char *argv[])
 				}
 			}
 			sched_pid = buf.pid;
+			signal(SIGUSR1, notify);
+			signal(SIGUSR2, suspend);
+
 			suspend(1);
 		}
 	}
