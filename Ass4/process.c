@@ -83,7 +83,7 @@ int main(int argc, char *argv[])
 		}
 	}
 	printf("Finally\n");
-	suspend(SIGUSR2);
+	pause();
 	sched_pid = buf.pid;
 
 	printf("%f\n",slp_prob);
@@ -122,8 +122,7 @@ int main(int argc, char *argv[])
 			sched_pid = buf.pid;
 			signal(SIGUSR1, notify);
 			signal(SIGUSR2, suspend);
-
-			suspend(SIGUSR2);
+			pause();
 		}
 	}
 	kill(sched_pid, SIGUSR2);

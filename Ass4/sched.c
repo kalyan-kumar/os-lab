@@ -23,20 +23,15 @@ struct my_msgbuf {
 
 void interchange(struct my_msgbuf *a, struct my_msgbuf *b)
 {
-	struct my_msgbuf tmp;
-	tmp.mtype = a->mtype;
-	tmp.pid = a->pid;
-	tmp.prior = a->prior;
 	a->mtype = b->mtype;
+	a->pseudo = b->pseudo;
 	a->pid = b->pid;
 	a->prior = b->prior;
-	b->mtype = tmp.mtype;
-	b->pid = tmp.pid;
-	b->prior = tmp.prior;
 }
 
 void heapify(struct my_msgbuf *A, int n, int pos)
 {
+	struct my_msgbuf tmp;
 	int i, x;
 	for(i=pos;i<n;)
 	{
@@ -52,7 +47,9 @@ void heapify(struct my_msgbuf *A, int n, int pos)
 			x = 2*i;
 		if(x != -1 && A[x].prior < A[i].prior)
 		{
-			interchange(&A[i], &A[x]);
+			interchange(&tmp, &A[x]);
+			interchange(&A[x], &A[i]);
+			interchange(&A[i], &tmp);
 			i = x;
 		}
 		else 
@@ -83,7 +80,7 @@ int main(int argc, char *argv[])
 	int msqid, i, x, running, tq = 0, qu_size=0, start=0, end=0;
 	key_t key;
 	pid_t pid=getpid(), sched_pid;
-	struct my_msgbuf buf;
+	struct my_msgbuf buf, tmp;
 
 	if((key = ftok("gen.c", 'A')) == -1)
 	{
@@ -99,6 +96,18 @@ int main(int argc, char *argv[])
 
 	while(1)
 	{
+		if(!strcmp(argv[1], "P-RR"))
+		{
+			for(i=1;i<=qu_size;i++)
+				printf("%d ", A[i].pid);
+			printf("\n");
+		}
+		else
+		{
+			for(i=start;i<end;i++)
+				printf("%d ", A[i].pid);
+			printf("\n");
+		}
 		signal(SIGUSR1, changeIt);
 		signal(SIGUSR2, changeIt);
 
@@ -106,9 +115,8 @@ int main(int argc, char *argv[])
 		{
 			if(buf.prior!=0)
 			{
-				 if(!strcmp(argv[1],"P-RR"))
+				if(!strcmp(argv[1],"P-RR"))
 				{	
-					printf("lellol\n");
 					interchange(&A[++qu_size], &buf);
 					makeHeap(A, qu_size);
 				}
@@ -127,7 +135,7 @@ int main(int argc, char *argv[])
 				}
 			}
 		}
-
+		sleep(1);
 		if(!strcmp(argv[1],"P-RR"))
 		{
 			if(qu_size==0)
@@ -146,15 +154,13 @@ int main(int argc, char *argv[])
 		else
 			tq=TIME_QUANTUM1;
 		kill(A[running].pid, SIGUSR1);
-		nanosleep(1000);
-		printf("%d is running now\n", A[running].pid );
-		//getchar();
-
-		
+		printf("Runnin process: %d\n", A[running].pid);
 		for(i=0;i<tq;i++)
 		{
+			usleep(50);
 			if(preempt==1)
 			{
+				printf("preempted\n");
 				if(!strcmp(argv[1], "P-RR"))
 				{
 					interchange(&A[running], &A[qu_size]);
@@ -171,16 +177,21 @@ int main(int argc, char *argv[])
 		}
 		if(i==tq)
 		{	
+			signal(SIGUSR1, changeIt);
+			signal(SIGUSR2, changeIt);
 			kill(A[running].pid, SIGUSR2);
-			nanosleep(1);
 			if(!strcmp(argv[1], "P-RR"))
 			{
+				interchange(&tmp, &A[running]);
 				interchange(&A[running], &A[qu_size]);
+				interchange(&A[qu_size], &tmp);
 				makeHeap(A, qu_size);
 			}
 			else
 			{
+				interchange(&tmp, &A[start]);
 				interchange(&A[start], &A[end]);
+				interchange(&A[end], &tmp);
 				start++;
 				start %= PROC_LIMIT;
 				end++;
