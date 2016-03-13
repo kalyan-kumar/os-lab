@@ -1,0 +1,41 @@
+p=0.2
+6007<--queue1<--6011<--queue0 <-- 6007
+
+produced=27	
+consumed=23
+
+p=0.3
+6213<--queue0<--6211<--queue1 <-- 6213
+produced=84
+consumed=79
+
+p=0.4
+6408<--queue0<--6404<--queue1 <--6408
+
+p=0.5
+queue1<--6454<--queue0<--6448 <-- queue1
+produced=1020
+consumed=1010
+
+p=0.6
+7343<--queue1<--7345<--queue0 <-- 7343
+produced=471
+consumed=465
+
+p=0.7
+7870<--queue1<--7872<--queue0 <-- 7870
+produced=1269
+consumer=1265
+
+p=0.8
+queue0<--6651<--queue1<--6643  <-- queue0
+produced=1999
+consumed=1982
+
+
+
+
+
+
+
+
