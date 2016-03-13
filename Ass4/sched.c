@@ -143,13 +143,10 @@ int main(int argc, char *argv[])
 		{
 			if(buf.prior!=0)
 			{
-<<<<<<< HEAD
 				if(buf.mtype==5)
 					no_p++;
 				 if(!strcmp(argv[1],"P-RR"))
-=======
-				if(!strcmp(argv[1],"P-RR"))
->>>>>>> f80c7d02d05fcc329b0bca5cf12eb26b474d1eb1
+
 				{	
 					interchange(&A[++qu_size], &buf);
 					qsort(A, qu_size, sizeof(struct my_msgbuf), cmp);
@@ -195,16 +192,14 @@ int main(int argc, char *argv[])
 			tq=TIME_QUANTUM1;
 		usleep(50);
 		kill(A[running].pid, SIGUSR1);
-<<<<<<< HEAD
+
 		printf("%d is running now\n", A[running].pid );
 		
 		printf("\n");
 		//getchar();
 
 		
-=======
-		printf("Runnin process: %d\n", A[running].pid);
->>>>>>> f80c7d02d05fcc329b0bca5cf12eb26b474d1eb1
+
 		for(i=0;i<tq;i++)
 		{
 			usleep(50);
