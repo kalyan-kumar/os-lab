@@ -92,6 +92,7 @@ int main(int argc, char *argv[])
 		}
 	}
 	printf("Finally\n");
+<<<<<<< HEAD
 	
 	clock_gettime(CLOCK_MONOTONIC, &twaitb);
 
@@ -99,6 +100,9 @@ int main(int argc, char *argv[])
 	clock_gettime(CLOCK_MONOTONIC, &tresp);
 	double wait_=((double)tresp.tv_sec + 1.0e-9*tresp.tv_nsec)-((double)twaitb.tv_sec + 1.0e-9*twaitb.tv_nsec);
 	double resp=((double)tresp.tv_sec + 1.0e-9*tresp.tv_nsec)-((double)tstart.tv_sec + 1.0e-9*tstart.tv_nsec);
+=======
+	pause();
+>>>>>>> f80c7d02d05fcc329b0bca5cf12eb26b474d1eb1
 	sched_pid = buf.pid;
 
 	printf("%f\n",slp_prob);
@@ -150,8 +154,14 @@ int main(int argc, char *argv[])
 
 			printf("Received message\n");
 			sched_pid = buf.pid;
+<<<<<<< HEAD
 			pause();
 
+=======
+			signal(SIGUSR1, notify);
+			signal(SIGUSR2, suspend);
+			pause();
+>>>>>>> f80c7d02d05fcc329b0bca5cf12eb26b474d1eb1
 		}
 	}
 	kill(sched_pid, SIGUSR2);
