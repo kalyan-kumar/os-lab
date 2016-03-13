@@ -12,8 +12,8 @@
 
 #define PROC_LIMIT 10000
 
-int preempt;
-
+volatile int preempt;
+int no_p=0,reached=0;
 struct my_msgbuf {
 	long mtype;
 	int pseudo;
@@ -56,7 +56,26 @@ void heapify(struct my_msgbuf *A, int n, int pos)
 			i = n;
 	}
 }
+void avg()
+{
+    FILE *fp =fopen("result.txt" , "r");
+    int i;
+    char buff[2000];
+    double id, avgrsp=0, avgwt=0, avgtat=0;
+    for(i = 0; i<no_p;i++)
+    {
+        double tid, tavgrsp, tavgwt, tavgtat;
+        fscanf(fp,"%lf %lf %lf %lf", &tid, &tavgrsp, &tavgwt, &tavgtat);
 
+        avgrsp = tavgrsp + avgrsp;
+        avgwt = tavgwt + avgwt;
+        avgtat = tavgtat + avgtat;
+    }
+    fclose(fp);
+    fp =fopen("result.txt" , "a");
+    fprintf(fp, "%f %f %f\n",avgrsp/no_p , avgwt/no_p, avgtat/no_p);
+    fclose(fp);
+}
 void makeHeap(struct my_msgbuf *A, int n)
 {
 	int i;
@@ -68,7 +87,15 @@ void changeIt(int sig)
 {
 	preempt = 1;
 }
+void stopit(int sig)
+{
+	preempt=1;
+	reached++;
 
+}
+int cmp(const void *a, const void *b) {
+	return ((struct my_msgbuf *) a)->prior < ((struct my_msgbuf *) b)->priority;
+}
 int main(int argc, char *argv[])
 {
 	if(argc < 2)
@@ -109,21 +136,29 @@ int main(int argc, char *argv[])
 			printf("\n");
 		}
 		signal(SIGUSR1, changeIt);
-		signal(SIGUSR2, changeIt);
-
-		while(msgrcv(msqid, &buf, sizeof (struct my_msgbuf), 5, IPC_NOWAIT) != -1)
+		signal(SIGUSR2, stopit);
+		if(no_p==reached && reached!=0)
+			break;
+		while(msgrcv(msqid, &buf, sizeof (struct my_msgbuf), -10, IPC_NOWAIT) != -1)
 		{
 			if(buf.prior!=0)
 			{
-				if(!strcmp(argv[1],"P-RR"))
+				if(buf.mtype==5)
+					no_p++;
+				 if(!strcmp(argv[1],"P-RR"))
+
 				{	
 					interchange(&A[++qu_size], &buf);
-					makeHeap(A, qu_size);
+					qsort(A, qu_size, sizeof(struct my_msgbuf), cmp);
+					//makeHeap(A, qu_size);
+					//usleep(50);
 				}
+				
 				else
 				{
 					interchange(&A[end++], &buf);
 				}
+				printf("process %d\n", buf.pseudo);
 				buf.mtype = buf.pseudo;
 				buf.pseudo = 0;
 				buf.pid = getpid();
@@ -133,6 +168,8 @@ int main(int argc, char *argv[])
 					perror("msgsnd");
 					exit(1);
 				}
+				
+				nanosleep(1);
 			}
 		}
 		sleep(1);
@@ -153,8 +190,16 @@ int main(int argc, char *argv[])
 			tq=TIME_QUANTUM2;
 		else
 			tq=TIME_QUANTUM1;
+		usleep(50);
 		kill(A[running].pid, SIGUSR1);
-		printf("Runnin process: %d\n", A[running].pid);
+
+		printf("%d is running now\n", A[running].pid );
+		
+		printf("\n");
+		//getchar();
+
+		
+
 		for(i=0;i<tq;i++)
 		{
 			usleep(50);
@@ -164,8 +209,9 @@ int main(int argc, char *argv[])
 				if(!strcmp(argv[1], "P-RR"))
 				{
 					interchange(&A[running], &A[qu_size]);
-					qu_size--;
-					heapify(A, qu_size, 1);
+					qsort(A, --qu_size, sizeof(struct my_msgbuf), cmp);
+					//qu_size--;
+					//heapify(A, qu_size, 1);
 				}
 				else  
 				{
@@ -175,6 +221,7 @@ int main(int argc, char *argv[])
 				break;
 			}
 		}
+		preempt=0;
 		if(i==tq)
 		{	
 			signal(SIGUSR1, changeIt);
@@ -197,6 +244,9 @@ int main(int argc, char *argv[])
 				end++;
 				end %= PROC_LIMIT;
 			}
+
 		}
 	}
+	avg();
+
 }

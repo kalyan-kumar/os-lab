@@ -6,10 +6,10 @@
 #include <unistd.h>
 int main()
 {
-	int spid=42, n=2;
+	int spid=72, n=2;
 	while(n--)
 	{
-		int N=10000,priority=10,slptime=1;
+		int N=100,priority=10,slptime=1;
 		float slpprob=0.3;
 		
 		char arg[100];
@@ -27,7 +27,7 @@ int main()
 	n=2;
 	while(n--)
 	{
-		int N=4000,priority=5,slptime=3;
+		int N=40,priority=5,slptime=3;
 		float slpprob=0.7;
 		char arg[100];
 		memset(arg,0,100);

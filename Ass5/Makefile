@@ -1,4 +1,4 @@
-all: train manager
+all: train manager Manager producer consumer
 
 train: train.c
 	gcc train.c -o train
@@ -6,5 +6,14 @@ train: train.c
 manager: manager.c
 	gcc manager.c -o manager
 
+Manager: Manager.c
+	gcc Manager.c -o manager
+
+producer: producer.c
+	gcc producer.c -o producer
+
+consumer: consumer.c
+	gcc consumer.c -o consumer
+
 clean:
-	rm manager train
+	rm manager train Manager producer consumer
