@@ -1,3 +1,4 @@
+#include <time.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -10,10 +11,21 @@
 #define SHM_SIZE 1024
 #define NUM_OF_ATM 20
 
-struct my_msgbuf {
-    long mtype;
-    char mtext[200];
+struct clidet
+{
+	int acc_num;
+	int balance;
+	time_t timestamp;
 };
+
+struct mas_msgbuf {
+    long mtype;
+    int cli_pid;
+    int present;
+};
+
+int sid, msgqid, num_clients;
+struct clidet client_details[1000];
 
 int initsem(key_t key, int nsems)  /* key from ftok() */
 {
@@ -70,6 +82,31 @@ int initsem(key_t key, int nsems)  /* key from ftok() */
     return semid;
 }
 
+void createIPC()
+{
+	key_t key;
+	if((key = ftok("master.c", 126))==-1)
+	{
+		perror("ftok");
+		exit(1);
+	}
+	if((sid = initsem(key, NUM_OF_ATM)) == -1)
+    {
+        perror("initsem");
+        exit(1);
+    }
+	if((key = ftok("master.c", 127))==-1)
+	{
+		perror("ftok");
+		exit(1);
+	}
+	if((msgqid = msgget(key, 0644 | IPC_CREAT)) == -1)
+	{
+        perror("msgget");
+        exit(1);
+    }
+}
+
 void makeAtm(int i)
 {
 	char arg[100];
@@ -80,51 +117,14 @@ void makeAtm(int i)
 
 int main(int argc, char *argv[])
 {
-	key_t key;
-	int shmid, sid, i, msgqs[NUM_OF_ATM];
-	char *data;
+	key_t k0, k1;
+	int  i;
 	pid_t atms[NUM_OF_ATM];
+	struct mas_msgbuf buf;
+	createIPC();
+	num_clients = 0;
 	FILE *fp = fopen("locator.txt", "w");
-
-	if((key = ftok("master.c", 125))==-1)
-	{
-		perror("ftok");
-		exit(1);
-	}
-	if((shmid = shmget(key, SHM_SIZE, 0644 | IPC_CREAT))==-1)
-	{
-		perror("shmget");
-		exit(1);
-	}
-	data = shmat(shmid, (void *)0, 0);
-	if(data == (char *)(-1))
-	{
-		perror("shmat");
-		exit(1);
-	}
-
-	if((key = ftok("master.c", 126))==-1)
-	{
-		perror("ftok");
-		exit(1);
-	}
-	if ((sid = initsem(key, 6)) == -1)
-    {
-        perror("initsem");
-        exit(1);
-    }
-
-	if((key = ftok("master.c", i+1))==-1)
-	{
-		perror("ftok");
-		exit(1);
-	}
-	if((msgqs[i] = msgget(key, 0644 | IPC_CREAT)) == -1)
-	{
-        perror("msgget");
-        exit(1);
-    }
-
+    fprintf(fp, "ATM ID\t\tmsg que key\t\tlock\t\tshm key\n", );
 	for(i=0;i<NUM_OF_ATM;i++)
 	{
 		atms[i] = fork();
@@ -137,21 +137,49 @@ int main(int argc, char *argv[])
 			makeAtm(i);
 		else
 		{
-			if((key = ftok("master.c", i+1))==-1)
+			if((k0 = ftok("master.c", 2*i))==-1)
 			{
 				perror("ftok");
 				exit(1);
 			}
-			
-		   	fprintf(fp, "ATM%d\t\t%d\t\t0\t\t%d\n", atms[i], key);
+			if((k1 = ftok("master.c", (2*i)+1))==-1)
+			{
+				perror("ftok");
+				exit(1);
+			}
+		   	fprintf(fp, "%d\t\t\t%d\t\t\t0\t\t\t%d\n", i, k1, k0);
 		}
 	}
 	fclose(fp);
 
-
-
-
-
+	while(1)
+	{
+		if(msgrcv(msgqid, &buf, sizeof(struct mas_msgbuf), 1, IPC_NOWAIT) != -1)
+		{
+			for(i=0;i<num_clients;i++)
+			{
+				if(client_details[i].acc_num != buf.cli_pid)
+					continue;
+				buf.present = 1;
+				if(msgsnd(msgqid, &buf, sizeof(struct mas_msgbuf), 0) == -1)
+				{
+					perror("msgsnd");
+					exit(1);
+				}
+				break;
+			}
+			if(i==num_clients)
+			{
+				buf.present = 0;
+				if(msgsnd(msgqid, &buf, sizeof(struct mas_msgbuf), 0) == -1)
+				{
+					perror("msgsnd");
+					exit(1);
+				}	
+			}
+		}
+	}
+	
 	if(shmdt(data) == -1)
 	{
         perror("shmdt");
