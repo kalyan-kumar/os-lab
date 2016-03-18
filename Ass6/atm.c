@@ -9,6 +9,11 @@
 #include <sys/shm.h>
 
 #define SHM_SIZE 1024
+#define ENTER 1
+#define WITHDRAW 2
+#define DEPOSIT 3
+#define VIEW 4
+#define LEAVE 5
 
 struct clidet
 {
@@ -28,8 +33,8 @@ struct mas_msgbuf {
 
 struct cli_msgbuf {
     long mtype;
-    char command[200];
     int cli_pid;
+    int result;
 };
 
 void createIPC()
@@ -73,6 +78,11 @@ void createIPC()
     }
 }
 
+int localConsistencyCheck()
+{
+	return -1;
+}
+
 void waitForClient()
 {
 	struct cli_msgbuf buf1;
@@ -81,7 +91,7 @@ void waitForClient()
 		perror("msgrcv");
 		exit(1);
 	}
-	if(strcmp(buf1.command, "ENTER")==0)
+	if(buf1.mtype == ENTER)
 	{
 		struct mas_msgbuf buf2;
 		buf2.mtype = 1;					// Set mtype
@@ -98,8 +108,7 @@ void waitForClient()
 		}
 		if(buf2.present==1)
 		{
-			buf1.mtype = 1;
-			strcpy(buf1.command. "EX");
+			buf1.result = 1;
 			if(msgsnd(msgqid, &buf1, sizeof(struct cli_msgbuf), 0) == -1)
 			{
 				perror("msgsnd");
@@ -108,8 +117,29 @@ void waitForClient()
 		}
 		else
 		{
-			buf1.mtype = 1;
-			strcpy(buf1.command. "N-EX");
+			buf1.result = 0;
+			if(msgsnd(msgqid, &buf1, sizeof(struct cli_msgbuf), 0) == -1)
+			{
+				perror("msgsnd");
+				exit(1);1
+			}
+		}
+	}
+	else if(buf1.mtype == WITHDRAW)
+	{
+		if(localConsistencyCheck()==-1)
+		{
+			buf1.result = 0;
+			if(msgsnd(msgqid, &buf1, sizeof(struct cli_msgbuf), 0) == -1)
+			{
+				perror("msgsnd");
+				exit(1);
+			}
+		}
+		else
+		{
+			// Update local address space here
+			buf1.result = 1;
 			if(msgsnd(msgqid, &buf1, sizeof(struct cli_msgbuf), 0) == -1)
 			{
 				perror("msgsnd");
@@ -117,7 +147,11 @@ void waitForClient()
 			}
 		}
 	}
-	else if(strcmp(buf1.command, "VIEW")==0)
+	else if(buf1.mtype == DEPOST)
+	{
+		
+	}
+	else if(buf1.mtype == VIEW)
 	{
 
 	}
