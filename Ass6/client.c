@@ -5,6 +5,7 @@
 #include <sys/types.h>
 #include <sys/ipc.h>
 #include <sys/msg.h>
+#include <sys/sem.h>
 
 #define NUM_OF_ATM 20
 #define ENTER 1
@@ -26,8 +27,8 @@ void displayAtms()
 {
 	FILE *fp = fopen("locator.txt", "r");
 	int i, id1, id2, id3;
-	for(i=0;fscanf(fp, "%d\t\t\t%d\t\t\t%d\t\t\t%d", &id1, &keys[i], &id2, &id3)!=EOF;i++)
-		printf("Enter the ID of the ATM you want to access\n");
+	for(i=0;fscanf(fp, "%d\t\t\t%d\t\t\t%d\t\t\t%d", &id1, &keys[i], &id2, &id3)!=EOF;i++);
+		//printf("Enter the ID of the ATM you want to access\n");
 	fclose(fp);
 	printf("Enter ATM number you want to access\n");
 	return ;
@@ -58,7 +59,7 @@ void createIPC()
         perror("Master didnt create the ATMs yet\n");
         exit(1);
     }
-    struct sembuf sb;
+	struct sembuf sb;
     sb.sem_flg = SEM_UNDO;
     sb.sem_num = n;
     sb.sem_op = -1;
@@ -137,7 +138,7 @@ void view()
 		exit(1);
 	}
 	if(buf.result==1)
-		printf("Your account balance is - %d\n", buf.amount);
+		printf("Your account balance is - %d\n", buf.money);
 	else
 		printf("Sorry, there was an internal error\n");
 }

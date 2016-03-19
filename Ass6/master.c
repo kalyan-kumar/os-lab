@@ -10,6 +10,7 @@
 
 #define SHM_SIZE 1024
 #define NUM_OF_ATM 20
+#define MAX_RETRIES 5
 
 struct clidet
 {
@@ -26,6 +27,15 @@ struct mas_msgbuf {
 
 int sid, msgqid, num_clients;
 struct clidet client_details[1000];
+void addclient(int acc_num)
+{
+	struct clidet temp;
+	temp.acc_num=acc_num;
+	temp.balance=rand()%100000+2000;
+	temp.timestamp=time(NULL);
+
+
+}
 
 int initsem(key_t key, int nsems)  /* key from ftok() */
 {
@@ -110,13 +120,14 @@ void createIPC()
 void makeAtm(int i)
 {
 	char arg[100];
-	sprintf(arg,"./atm %d", i);
+	sprintf(arg,"./atm %d &", i);
 	system(arg);
 	exit(1);
 }
 
 int main(int argc, char *argv[])
 {
+	srand(time(NULL));
 	key_t k0, k1;
 	int  i;
 	pid_t atms[NUM_OF_ATM];
@@ -124,7 +135,7 @@ int main(int argc, char *argv[])
 	createIPC();
 	num_clients = 0;
 	FILE *fp = fopen("locator.txt", "w");
-    fprintf(fp, "ATM ID\t\tmsg que key\t\tlock\t\tshm key\n", );
+    fprintf(fp, "ATM ID\t\tmsg que key\t\tlock\t\tshm key\n" );
 	for(i=0;i<NUM_OF_ATM;i++)
 	{
 		atms[i] = fork();
@@ -175,20 +186,21 @@ int main(int argc, char *argv[])
 				{
 					perror("msgsnd");
 					exit(1);
-				}	
+				}
+				addclient(buf.cli_pid);
 			}
 		}
 	}
 	
-	if(shmdt(data) == -1)
-	{
-        perror("shmdt");
-        exit(1);
-    }
-    if(shmctl(shmid, IPC_RMID, NULL) == -1)
-    {
-    	perror("shmctl");
-    	exit(1);
-    }
-    return 0;
+	// if(shmdt(data) == -1)
+	// {
+ //        perror("shmdt");
+ //        exit(1);
+ //    }
+ //    if(shmctl(shmid, IPC_RMID, NULL) == -1)
+ //    {
+ //    	perror("shmctl");
+ //    	exit(1);
+ //    }
+ //    return 0;
 }
