@@ -7,6 +7,10 @@
 #include <sys/ipc.h>
 #include <sys/msg.h>
 #include <sys/shm.h>
+#include <sys/sem.h>
+// #include <svsem/semun.h>
+
+
 #include <errno.h>
 
 
@@ -40,7 +44,11 @@ struct transaction
 };
 int sid, msgqid, num_clients;
 struct clidet client_details[1000];
-
+union semun {
+    int val;
+    struct semid_ds *buf;
+    ushort *array;
+};
 void addclient(int acc_num)
 {
 	struct clidet temp;
@@ -131,9 +139,15 @@ void createIPC()
 
 void makeAtm(int i)
 {
-	char arg[100];
-	sprintf(arg,"./atm %d &", i);
-	system(arg);
+	char *arg[3];
+	arg[0]=(char*)malloc(100*sizeof(char));
+	strcpy(arg[0],"./atm");
+	arg[1]=(char*)malloc(10*sizeof(char));
+	sprintf(arg[1],"%d",i);
+	arg[2]=NULL;
+	execvp(arg[0],arg);
+	// sprintf(arg,[1]",%d", i);
+	// system(arg);
 	exit(1);
 }
 void globalConsistency(struct mas_msgbuf buf)
@@ -222,7 +236,10 @@ int main(int argc, char *argv[])
 			exit(1);
 		}
 		else if(atms[i] == 0)
-			makeAtm(i);
+			{
+				makeAtm(i);
+				// return;
+			}	
 		else
 		{
 			if((k0 = ftok("master.c", 2*i))==-1)
