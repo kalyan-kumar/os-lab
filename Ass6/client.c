@@ -27,8 +27,8 @@ void displayAtms()
 {
 	FILE *fp = fopen("locator.txt", "r");
 	int i, id1, id2, id3;
-	for(i=0;fscanf(fp, "%d\t\t\t%d\t\t\t%d\t\t\t%d", &id1, &keys[i], &id2, &id3)!=EOF;i++);
-		//printf("Enter the ID of the ATM you want to access\n");
+	for(i=0;fscanf(fp, "%d\t\t\t%d\t\t\t%d\t\t\t%d", &id1, &keys[i], &id2, &id3)!=EOF;i++)
+		printf("ATM-%d Que-%d Sem-%d Shm-%d\n", id1, keys[i], id2, id3);
 	fclose(fp);
 	printf("Enter ATM number you want to access\n");
 	return ;
@@ -176,6 +176,8 @@ int main(int argc, char *argv[])
 	struct cli_msgbuf buf;
 	buf.mtype = ENTER;
 	buf.cli_pid = getpid();
+	buf.result = -1;
+	buf.money = -1;
 	if(msgsnd(msqid, &buf, sizeof(struct cli_msgbuf), 0) == -1)
 	{
 		perror("msgsnd");

@@ -148,21 +148,17 @@ void enterRoutine(struct cli_msgbuf buf1)
 	buf2.mtype = 2;
 	buf2.cli_pid = buf1.cli_pid;
 	buf2.present=0;
-	// printf("lol\n");
 	if(msgsnd(masqid, &buf2, sizeof(struct mas_msgbuf), 0) == -1)
 	{
 		perror("msgsnd");
 		exit(1);
 	}
-	// printf("sent\n");
-
 	if(msgrcv(masqid, &buf2, sizeof(struct mas_msgbuf), buf1.cli_pid, 0) == -1)
 	{
 		perror("msgrcv");
 		exit(1);
 	}
-	 printf("recieved %d\n",buf2.present);
-
+	printf("recieved %d\n",buf2.present);
 	if(buf2.present==1)
 	{
 		buf1.result = 1;
@@ -174,8 +170,13 @@ void enterRoutine(struct cli_msgbuf buf1)
 	}
 	else
 	{
-		// printf("sending result 0\n");
 		buf1.result = 0;
+		int *ptr = (int *)data;
+		struct clidet *tempdata = (struct clidet *)(data+sizeof(int));
+		(tempdata+(*ptr)*sizeof(struct clidet))->acc_num = buf1.cli_pid;
+		(tempdata+(*ptr)*sizeof(struct clidet))->balance = 0;
+		(tempdata+(*ptr)*sizeof(struct clidet))->timestamp = time(NULL);
+		(*ptr)++;
 		if(msgsnd(msgqid, &buf1, sizeof(struct cli_msgbuf), 0) == -1)
 		{
 			perror("msgsnd");
@@ -205,7 +206,6 @@ void withdrawRoutine(struct cli_msgbuf buf1)
 		(tempdata+(*ptr)*sizeof(struct transaction))->timestamp = time(NULL);
 		(*ptr)++;
 		buf1.result = 1;
-
 		if(msgsnd(msgqid, &buf1, sizeof(struct cli_msgbuf), 0) == -1)
 		{
 			perror("msgsnd");
@@ -221,13 +221,12 @@ void depositRoutine(struct cli_msgbuf buf1)
 	// printf("%d money\n",buf1.money );
 	struct transaction *tempdata = (struct transaction *)(data+sizeof(int));
 	(tempdata+(*ptr)*sizeof(struct transaction))->acc_num = buf1.cli_pid;
-		(tempdata+(*ptr)*sizeof(struct transaction))->money = buf1.money;
-		(tempdata+(*ptr)*sizeof(struct transaction))->type = DEPOSIT;
-		(tempdata+(*ptr)*sizeof(struct transaction))->timestamp = time(NULL);
+	(tempdata+(*ptr)*sizeof(struct transaction))->money = buf1.money;
+	(tempdata+(*ptr)*sizeof(struct transaction))->type = DEPOSIT;
+	(tempdata+(*ptr)*sizeof(struct transaction))->timestamp = time(NULL);
 	(*ptr)++;
 	buf1.result = 1;
 	printf("%d dep\n", *ptr);
-	// printf("deposited\n");
 	if(msgsnd(msgqid, &buf1, sizeof(struct cli_msgbuf), 0) == -1)
 	{
 		perror("msgsnd");

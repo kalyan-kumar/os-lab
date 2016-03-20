@@ -52,12 +52,10 @@ union semun {
 
 void addclient(int acc_num)
 {
-	// struct clidet temp;
 	client_details[num_clients].acc_num=acc_num;
 	client_details[num_clients].balance=rand()%100000+2000;
 	client_details[num_clients].timestamp=time(NULL);
 	num_clients++;
-
 }
 
 int initsem(key_t key, int nsems)  /* key from ftok() */
@@ -149,8 +147,6 @@ void makeAtm(int i)
 	sprintf(arg[1],"%d",i);
 	arg[2]=NULL;
 	execvp(arg[0],arg);
-	// sprintf(arg,[1]",%d", i);
-	// system(arg);
 	exit(1);
 }
 void globalConsistency(struct mas_msgbuf buf)
