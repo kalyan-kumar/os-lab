@@ -171,11 +171,11 @@ void enterRoutine(struct cli_msgbuf buf1)
 	else
 	{
 		buf1.result = 0;
-		int *ptr = (int *)data;
-		struct clidet *tempdata = (struct clidet *)(data+sizeof(int));
-		(tempdata+(*ptr)*sizeof(struct clidet))->acc_num = buf1.cli_pid;
-		(tempdata+(*ptr)*sizeof(struct clidet))->balance = 0;
-		(tempdata+(*ptr)*sizeof(struct clidet))->timestamp = time(NULL);
+		int *ptr = (int *)(data+SHM_SIZE-sizeof(int));
+		struct clidet *tempdata = (struct clidet *)(data+SHM_SIZE-sizeof(int));
+		(tempdata-((*ptr)+1)*sizeof(struct clidet))->acc_num = buf1.cli_pid;
+		(tempdata-((*ptr)+1)*sizeof(struct clidet))->balance = 0;
+		(tempdata-((*ptr)+1)*sizeof(struct clidet))->timestamp = time(NULL);
 		(*ptr)++;
 		if(msgsnd(msgqid, &buf1, sizeof(struct cli_msgbuf), 0) == -1)
 		{
