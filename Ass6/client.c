@@ -132,7 +132,7 @@ void view()
 		perror("msgsnd");
 		exit(1);
 	}
-	if(msgrcv(msqid, &buf, sizeof(struct cli_msgbuf), 0, 0) == -1)
+	if(msgrcv(msqid, &buf, sizeof(struct cli_msgbuf), getpid(), 0) == -1)
 	{
 		perror("msgrcv");
 		exit(1);
