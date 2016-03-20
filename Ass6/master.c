@@ -260,7 +260,7 @@ void globalConsistency(struct mas_msgbuf buf)
 		}	
 		if(j==(*ptr))
 		{
-			printf("here\n");
+			// printf("here\n");
 						(*ptr)++;
 
 			(tempdata-(*ptr)*sizeof(struct clidet))->acc_num = pid;

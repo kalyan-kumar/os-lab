@@ -256,17 +256,17 @@ void viewRoutine(struct cli_msgbuf buf1)
 	// struct clidet *tempdata;
 	// tempdata=(struct clidet *)data;
 	int *ptr = (int *)(data+SHM_SIZE-sizeof(int));
-	printf("%d clients\n",*ptr );
+	// printf("%d clients\n",*ptr );
 	int j;
 	struct clidet *tempdata = (struct clidet *)(data+SHM_SIZE-sizeof(int));
 	for(j=1;j<=(*ptr);j++)
 	{
-		if((tempdata-j)->acc_num == buf1.cli_pid)
+		if((tempdata-j*sizeof(struct clidet))->acc_num == buf1.cli_pid)
 		{
 			buf1.mtype=buf1.cli_pid;
 				// buf1.cli_pid=pid;
 			buf1.result=1;
-			buf1.money=(tempdata-j)->balance;
+			buf1.money=(tempdata-j*sizeof(struct clidet))->balance;
 			
 			break;
 		}
@@ -278,11 +278,13 @@ void viewRoutine(struct cli_msgbuf buf1)
 				perror("msgsnd");
 				exit(1);
 			}
+	printf("done\n");		
 }
 
 void waitForClient()
 {
 	struct cli_msgbuf buf1;
+	printf("waiting\n");
 	if(msgrcv(msgqid, &buf1, sizeof(struct cli_msgbuf), 0, 0) == -1)
 	{
 		perror("msgrcv");
