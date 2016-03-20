@@ -27,14 +27,13 @@ struct mas_msgbuf {
 
 int sid, msgqid, num_clients;
 struct clidet client_details[1000];
+
 void addclient(int acc_num)
 {
 	struct clidet temp;
 	temp.acc_num=acc_num;
 	temp.balance=rand()%100000+2000;
 	temp.timestamp=time(NULL);
-
-
 }
 
 int initsem(key_t key, int nsems)  /* key from ftok() */

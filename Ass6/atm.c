@@ -9,6 +9,7 @@
 #include <sys/shm.h>
 
 #define SHM_SIZE 1024
+#define NUM_OF_ATM 20
 #define ENTER 1
 #define WITHDRAW 2
 #define DEPOSIT 3
@@ -21,6 +22,7 @@ struct clidet
 	int balance;
 	time_t timestamp;
 };
+
 struct transaction
 {
 	int acc_num;
@@ -28,8 +30,9 @@ struct transaction
 	int type;
 	time_t timestamp;
 };
+
 int msgqid, masqid, shmid,ind;
-struct clidet *data;
+void *data;
 
 struct mas_msgbuf {
     long mtype;
@@ -68,11 +71,15 @@ void createIPC()
 		exit(1);
 	}
 	data = shmat(shmid, (void *)0, 0);
-	if(data == (struct clidet*)(-1))
+	if(data == (char *)(-1))
 	{
 		perror("shmat");
 		exit(1);
 	}
+	int *A = (int *)data;
+	(*A) = 0;
+	A = (int *)(data+SHM_SIZE-sizeof(int));
+	(*A) = 0;
 	if((k1 = ftok("master.c", (2*ind)+1))==-1)
 	{
 		perror("ftok");
@@ -85,72 +92,153 @@ void createIPC()
     }
 }
 
-int localConsistencyCheck(int money)
+int localConsistencyCheck(int accnt_num, int money)
 {
-	int i,k0;
-	for(i=0;i<20;i++)
+	int i, j, cur_mem, amount, k0, *ptr;
+	void *datas;
+	struct clidet *tempdata;
+	struct transaction *temptime;	
+	for(i=0,amount=0;i<NUM_OF_ATM;i++)
 	{
-		if(i==ind)
-			continue;
-		struct clidet *tempdata;
-		struct transaction *temptime;
 		if((k0 = ftok("master.c", 2*i))==-1)
 		{
-		perror("ftok");
-		exit(1);
+			perror("ftok");
+			exit(1);
 		}
-		if((shmid = shmget(k0, SHM_SIZE, 0644 ))==-1)
+		if((cur_mem = shmget(k0, SHM_SIZE, 0644 ))==-1)
 		{
 			perror("shmget");
 			exit(1);
 		}
-		void *datas=shmat(shmid,(void *)0,0);
-		tempdata=(struct clidet *)datas;
-		temptime=(struct transaction * )(datas+SHM_SIZE/2);
-		int j;
-		for(j=0;j<SHM_SIZE/2;j++)
+		datas=shmat(cur_mem, (void *)0, 0);
+		ptr = (int *)datas;
+		temptime = (struct transaction *)(datas+sizeof(int));
+		for(j=0;j<(*ptr);j++)
 		{
-			if(tempdata[j].balance<0||tempdata[j].balance>102000)
-				break;
-			if(cur.timestamp>tempdata[j].timestamp)
-				continue;
-			if(cur.acc_num==tempdata[j].acc_num)
+			if((temptime+j)->acc_num == accnt_num)
 			{
-				cur.balance=tempdata[j].balance;
-				cur.timestamp=tempdata[j].timestamp;
+				if(type==WITHDRAW)
+					amount -= (temptime+j)->money;
+				else
+					amount += (temptime+j)->money;
 			}
 		}
-		for(j=0;j<SHM_SIZE/2;j++)
-		{
-			if(cur.timestamp>temptime[j].timestamp)
-				continue;
-			//write timestamp
-		}
-
 	}
-	if(cur.balance<money)
+	ptr = (int *)(data+SHM_SIZE-sizeof(int));
+	tempdata = (struct clidet *)(data+SHM_SIZE-sizeof(int));
+	for(j=1;j<=(*ptr);j++)
+	{
+		if((tempdata-j)->acc_num == accnt_num)
+			break;
+	}
+	if(((tempdata-j)->balance)+amount>=0)
+		return 1;
+	else
 		return -1;
-	cur.balance-=money;
-	//make transaction;
 }
-int globalConsistencyCheck(int pid)
+
+void enterRoutine(struct cli_msgbuf buf1)
 {
 	struct mas_msgbuf buf2;
 	buf2.mtype = 2;					// Set mtype
 	buf2.cli_pid = pid;
 	buf2.present=1;
+
 	if(msgsnd(masqid, &buf2, sizeof(struct mas_msgbuf), 0) == -1)
+	{
+		perror("msgsnd");
+		exit(1);
+	}
+	if(msgrcv(masqid, &buf2, sizeof(struct mas_msgbuf), 1, 0) == -1)
+	{
+		perror("msgrcv");
+		exit(1);
+	}
+	if(buf2.present==1)
+	{
+		buf1.result = 1;
+		if(msgsnd(msgqid, &buf1, sizeof(struct cli_msgbuf), 0) == -1)
 		{
 			perror("msgsnd");
 			exit(1);
 		}
-	if(msgrcv(masqid, &buf2, sizeof(struct mas_msgbuf), pid, 0) == -1)
+
+	}
+	else
+	{
+		buf1.result = 0;
+		if(msgsnd(msgqid, &buf1, sizeof(struct cli_msgbuf), 0) == -1)
 		{
-			perror("msgrcv");
+			perror("msgsnd");
 			exit(1);
 		}
-//sendtoclient and update yo shm	
+	}
+}
 
+void withdrawRoutine(struct cli_msgbuf buf1)
+{
+	if(localConsistencyCheck(buf1.cli_pid, buf1.money)==-1)
+	{
+		buf1.result = 0;
+		if(msgsnd(msgqid, &buf1, sizeof(struct cli_msgbuf), 0) == -1)
+		{
+			perror("msgsnd");
+			exit(1);
+		}
+	}
+	else
+	{
+		int *ptr = (int *)data;
+		struct transaction *tempdata = (struct transaction *)(data+sizeof(int))
+		(*(tempdata+(*ptr))).acc_num = buf1.cli_pid;
+		(*(tempdata+(*ptr))).money = buf1.money;
+		(*(tempdata+(*ptr))).type = WITHDRAW;
+		(*(tempdata+(*ptr))).timestamp = time(NULL);
+		(*ptr)++;
+		buf1.result = 1;
+		if(msgsnd(msgqid, &buf1, sizeof(struct cli_msgbuf), 0) == -1)
+		{
+			perror("msgsnd");
+			exit(1);
+		}
+	}
+}
+
+void depositRoutine(struct cli_msgbuf buf1)
+{
+	int *ptr = (int *)data;
+	struct transaction *tempdata = (struct transaction *)(data+sizeof(int))
+	(*(tempdata+(*ptr))).acc_num = buf1.cli_pid;
+	(*(tempdata+(*ptr))).money = buf1.money;
+	(*(tempdata+(*ptr))).type = DEPOSIT;
+	(*(tempdata+(*ptr))).timestamp = time(NULL);
+	(*ptr)++;
+	buf1.result = 1;
+	if(msgsnd(msgqid, &buf1, sizeof(struct cli_msgbuf), 0) == -1)
+	{
+		perror("msgsnd");
+		exit(1);
+	}
+}
+
+void viewRoutine(struct cli_msgbuf buf1)
+{
+	struct mas_msgbuf buf2;
+	buf2.mtype = 1;					// Set mtype
+	buf2.cli_pid = buf1.acc_num;
+	buf2.present=1;
+	if(msgsnd(masqid, &buf2, sizeof(struct mas_msgbuf), 0) == -1)
+	{
+		perror("msgsnd");
+		exit(1);
+	}
+	if(msgrcv(msgqid, &buf2, sizeof(struct mas_msgbuf), 1, 0) == -1)
+	{
+		perror("msgrcv");
+		exit(1);
+	}
+	if(buf2.present == 0)
+		return 
 }
 
 void waitForClient()
@@ -161,77 +249,20 @@ void waitForClient()
 		perror("msgrcv");
 		exit(1);
 	}
-	if(buf1.mtype == ENTER)
+	switch(buf1.mtype)
 	{
-		struct mas_msgbuf buf2;
-		buf2.mtype = 1;					// Set mtype
-		buf2.cli_pid = buf1.cli_pid;
-		buf2.present=0;//using present as a type too
-		if(msgsnd(masqid, &buf2, sizeof(struct mas_msgbuf), 0) == -1)
-		{
-			perror("msgsnd");
-			exit(1);
-		}
-		if(msgrcv(masqid, &buf2, sizeof(struct mas_msgbuf), 1, 0) == -1)///was msgqid
-		{
-			perror("msgrcv");
-			exit(1);
-		}
-		if(buf2.present==1)
-		{
-			buf1.result = 1;
-			if(msgsnd(msgqid, &buf1, sizeof(struct cli_msgbuf), 0) == -1)
-			{
-				perror("msgsnd");
-				exit(1);
-			}
-		}
-		else
-		{
-			buf1.result = 0;
-			if(msgsnd(msgqid, &buf1, sizeof(struct cli_msgbuf), 0) == -1)
-			{
-				perror("msgsnd");
-				exit(1);
-			}
-		}
-	}
-	else if(buf1.mtype == WITHDRAW)
-	{
-		if(localConsistencyCheck(buf1.money)==-1)
-		{
-			buf1.result = 0;
-			if(msgsnd(msgqid, &buf1, sizeof(struct cli_msgbuf), 0) == -1)
-			{
-				perror("msgsnd");
-				exit(1);
-			}
-		}
-		else
-		{
-			// Update local address space here
-			buf1.result = 1;
-			if(msgsnd(msgqid, &buf1, sizeof(struct cli_msgbuf), 0) == -1)
-			{
-				perror("msgsnd");
-				exit(1);
-			}
-		}
-	}
-	else if(buf1.mtype == DEPOSIT)
-	{
-		struct transaction temp;
-		temp.acc_num=buf1.cli_pid;
-		temp.money=buf1.money;
-		temp.type=DEPOSIT;
-		temp.timestamp=time(NULL);
-		//addtoshm
-	}
-	else if(buf1.mtype == VIEW)
-	{
-		if(globalConsistencyCheck(buf1.cli_pid)==-1)
-			return;
-
+		case ENTER:
+			enterRoutine(buf1);
+			break;
+		case WITHDRAW:
+			withdrawRoutine(buf1);
+			break;
+		case DEPOSIT:
+			depositRoutine(buf1);
+			break;
+		case VIEW:
+			viewRoutine(buf1);
+			break;
 	}
 }
 
@@ -240,9 +271,6 @@ int main(int argc, char *argv[])
 	ind = atoi(argv[1]);
 	createIPC(ind);
 	while(1)
-	{
 		waitForClient(ind);
-	}
-
     return 0;
 }
