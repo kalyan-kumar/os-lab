@@ -1,5 +1,6 @@
 #include <time.h>
 #include <stdio.h>
+#include <signal.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -31,7 +32,7 @@ struct transaction
 	time_t timestamp;
 };
 
-int msgqid, masqid, shmid,ind;
+int msgqid, masqid, shmid, ind, quit;
 void *data;
 
 struct mas_msgbuf {
@@ -144,7 +145,7 @@ int localConsistencyCheck(int accnt_num, int money)
 void enterRoutine(struct cli_msgbuf buf1)
 {
 	struct mas_msgbuf buf2;
-	buf2.mtype = 2;					// Set mtype
+	buf2.mtype = 2;
 	buf2.cli_pid = buf1.cli_pid;
 	buf2.present=0;
 	// printf("lol\n");
@@ -170,7 +171,6 @@ void enterRoutine(struct cli_msgbuf buf1)
 			perror("msgsnd");
 			exit(1);
 		}
-
 	}
 	else
 	{
@@ -302,12 +302,34 @@ void waitForClient()
 	}
 }
 
+void sigHand(int sig)
+{
+	quit = 1;
+}
+
 int main(int argc, char *argv[])
 {
 	ind = atoi(argv[1]);
+	quit = 0;
 	createIPC(ind);
+	signal(SIGINT, sigHand);
 	printf("created %d\n",ind );
-	while(1)
+	while(quit==0)
 		waitForClient(ind);
+	if(shmdt(data) == -1)
+	{
+        perror("shmdt");
+        exit(1);
+    }
+    if(shmctl(shmid, IPC_RMID, NULL) == -1)
+    {
+    	perror("shmctl");
+    	exit(1);
+    }
+    if(msgctl(msgqid, IPC_RMID, NULL) == -1)
+	{
+        perror("msgctl");
+        exit(1);
+    }
 	return 0;
 }

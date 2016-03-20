@@ -1,5 +1,6 @@
 #include <time.h>
 #include <stdio.h>
+#include <signal.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -8,11 +9,7 @@
 #include <sys/msg.h>
 #include <sys/shm.h>
 #include <sys/sem.h>
-// #include <svsem/semun.h>
-
-
 #include <errno.h>
-
 
 #define SHM_SIZE 1024
 #define NUM_OF_ATM 20
@@ -35,6 +32,7 @@ struct mas_msgbuf {
     int cli_pid;
     int present;
 };
+
 struct transaction
 {
 	int acc_num;
@@ -42,13 +40,16 @@ struct transaction
 	int type;
 	time_t timestamp;
 };
-int sid, msgqid, num_clients;
+
+int sid, msgqid, num_clients, quit;
 struct clidet client_details[1000];
+
 union semun {
     int val;
     struct semid_ds *buf;
     ushort *array;
 };
+
 void addclient(int acc_num)
 {
 	// struct clidet temp;
@@ -218,9 +219,15 @@ void globalConsistency(struct mas_msgbuf buf)
 	// void *data=shmat()
 }
 
+void sigHand(int sig)
+{
+	quit = 1;
+}
+
 int main(int argc, char *argv[])
 {
 	srand(time(NULL));
+	quit = 0;
 	key_t k0, k1;
 	int  i;
 	pid_t atms[NUM_OF_ATM];
@@ -238,10 +245,7 @@ int main(int argc, char *argv[])
 			exit(1);
 		}
 		else if(atms[i] == 0)
-			{
-				makeAtm(i);
-				// return;
-			}	
+			makeAtm(i);
 		else
 		{
 			if((k0 = ftok("master.c", 2*i))==-1)
@@ -258,8 +262,8 @@ int main(int argc, char *argv[])
 		}
 	}
 	fclose(fp);
-
-	while(1)
+	signal(SIGINT, sigHand);
+	while(quit==0)
 	{
 		if(msgrcv(msgqid, &buf, sizeof(struct mas_msgbuf), -2, 0) != -1)
 		{
@@ -298,16 +302,12 @@ int main(int argc, char *argv[])
 			}
 		}
 	}
-	
-	// if(shmdt(data) == -1)
-	// {
- //        perror("shmdt");
- //        exit(1);
- //    }
- //    if(shmctl(shmid, IPC_RMID, NULL) == -1)
- //    {
- //    	perror("shmctl");
- //    	exit(1);
- //    }
- //    return 0;
+	for(i=0;i<NUM_OF_ATM;i++)
+		kill(atms[i], SIGINT);
+	if(msgctl(msgqid, IPC_RMID, NULL) == -1)
+	{
+        perror("msgctl");
+        exit(1);
+    }
+    return 0;
 }
