@@ -149,9 +149,18 @@ void makeAtm(int i)
 	execvp(arg[0],arg);
 	exit(1);
 }
+
+
+// int *ptr = (int *)data;
+// 		struct clidet *tempdata = (struct clidet *)(data+sizeof(int));
+// 		(tempdata+(*ptr)*sizeof(struct clidet))->acc_num = buf1.cli_pid;
+// 		(tempdata+(*ptr)*sizeof(struct clidet))->balance = 0;
+// 		(tempdata+(*ptr)*sizeof(struct clidet))->timestamp = time(NULL);
+// 		(*ptr)++;
 void globalConsistency(struct mas_msgbuf buf)
 {
 	int i, j, cur_mem, amount, k0, *ptr;
+	int pid=buf.cli_pid;
 	void *datas;
 	struct clidet *tempdata;
 			printf("it came here\n");
@@ -171,10 +180,11 @@ void globalConsistency(struct mas_msgbuf buf)
 		}
 		datas=shmat(cur_mem, (void *)0, 0);
 		ptr = (int *)datas;
+		//printf("%d times\n",*ptr);
 		temptime = (struct transaction *)(datas+sizeof(int));
 		for(j=0;j<(*ptr);j++)
 		{
-			if((temptime+j*sizeof(struct transaction))->acc_num == buf.cli_pid)
+			if((temptime+j*sizeof(struct transaction))->acc_num == pid)
 			{
 
 				if((temptime+j*sizeof(struct transaction))->type==WITHDRAW)
@@ -182,7 +192,6 @@ void globalConsistency(struct mas_msgbuf buf)
 				else
 					amount += (temptime+j*sizeof(struct transaction))->money;
 				struct transaction temp;
-
 				temp.money=(temptime+((*ptr)-1)*sizeof(struct transaction))->money;
 				temp.acc_num=(temptime+((*ptr)-1)*sizeof(struct transaction))->acc_num;
 				temp.type=(temptime+((*ptr)-1)*sizeof(struct transaction))->type;
@@ -199,22 +208,27 @@ void globalConsistency(struct mas_msgbuf buf)
 				(temptime+j*sizeof(struct transaction))->type=temp.type;
 				(temptime+j*sizeof(struct transaction))->timestamp=temp.timestamp;
 
-				*ptr--;
+
+				(*ptr)--;
 
 			}
 		}
 
-		
 		//writetolocalshm
 	}
+	// printf("%d is the amount\n", amount);
 	for(j=0;j<num_clients;j++)
 		{
-			if(client_details[j].acc_num==buf.cli_pid)
+			if(client_details[j].acc_num==pid)
 			{
+				// printf("%d client\n",client_details[j].balance );
 				client_details[j].balance+=amount;
-				amount=client_details[i].balance;
+
+				amount=client_details[j].balance;
+				// printf("%d client\n",amount );
+
 				client_details[j].timestamp=time(NULL);
-				printf("%d balance\n",amount );
+				// printf("%d balance\n",amount );
 				break;
 			}
 		}
@@ -234,24 +248,31 @@ void globalConsistency(struct mas_msgbuf buf)
 		datas=shmat(cur_mem, (void *)0, 0);
 		ptr = (int *)(datas+SHM_SIZE-sizeof(int));
 		struct clidet *tempdata = (struct clidet *)(datas+SHM_SIZE-sizeof(int));
-		for(j=1;j<=(*ptr);j++)
+		for(j=0;j<(*ptr);j++)
 		{
-			if((tempdata-j*sizeof(struct clidet))->acc_num == buf.cli_pid)
+			if((tempdata-j*sizeof(struct clidet))->acc_num == pid)
+			{
+				(tempdata+(j)*sizeof(struct clidet))->balance = amount;
+			// (tempdata+(*ptr)*sizeof(struct clidet))->type = DEPOSIT;
+			(tempdata+(j)*sizeof(struct clidet))->timestamp = time(NULL);
+			}
 			break;
 		}	
 		if(j==(*ptr))
 		{
-			(tempdata+(*ptr)*sizeof(struct clidet))->acc_num = buf.cli_pid;
-			(tempdata+(*ptr)*sizeof(struct clidet))->balance = amount;
+			printf("here\n");
+						(*ptr)++;
+
+			(tempdata-(*ptr)*sizeof(struct clidet))->acc_num = pid;
+			(tempdata-(*ptr)*sizeof(struct clidet))->balance = amount;
 			// (tempdata+(*ptr)*sizeof(struct clidet))->type = DEPOSIT;
-			(tempdata+(*ptr)*sizeof(struct clidet))->timestamp = time(NULL);
-			(*ptr)++;
+			(tempdata-(*ptr)*sizeof(struct clidet))->timestamp = time(NULL);
 		}	
 
 	}
 	
 	buf.present = 1;
-	buf.mtype=buf.cli_pid;
+	buf.mtype=pid;
 				// printf("%d\n", client_details[i].acc_num);
 	if(msgsnd(msgqid, &buf, sizeof(struct mas_msgbuf), 0) == -1)
 	{
