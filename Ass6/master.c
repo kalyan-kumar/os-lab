@@ -158,6 +158,8 @@ void globalConsistency(struct mas_msgbuf buf)
 	int i, j, cur_mem, amount, k0, *ptr;
 	void *datas;
 	struct clidet *tempdata;
+			printf("it came here\n");
+
 	struct transaction *temptime;	
 	for(i=0,amount=0;i<NUM_OF_ATM;i++)
 	{
@@ -206,16 +208,61 @@ void globalConsistency(struct mas_msgbuf buf)
 			}
 		}
 
-		for(i=0;i<num_clients;i++)
-		{
-			if(client_details[i].acc_num==buf.cli_pid)
-			{
-				client_details[i].balance+=amount;
-				client_details[i].timestamp=time(NULL);
-			}
-		}	
+		
 		//writetolocalshm
 	}
+	for(j=0;j<num_clients;j++)
+		{
+			if(client_details[j].acc_num==buf.cli_pid)
+			{
+				client_details[j].balance+=amount;
+				amount=client_details[i].balance;
+				client_details[j].timestamp=time(NULL);
+				printf("%d balance\n",amount );
+				break;
+			}
+		}
+
+	for(i=0;i<NUM_OF_ATM;i++)
+	{
+		if((k0 = ftok("master.c", 2*i))==-1)
+		{
+			perror("ftok");
+			exit(1);
+		}
+		if((cur_mem = shmget(k0, SHM_SIZE, 0644 ))==-1)
+		{
+			perror("shmget");
+			exit(1);
+		}
+		datas=shmat(cur_mem, (void *)0, 0);
+		ptr = (int *)(datas+SHM_SIZE-sizeof(int));
+		struct clidet *tempdata = (struct clidet *)(datas+SHM_SIZE-sizeof(int));
+		for(j=1;j<=(*ptr);j++)
+		{
+			if((tempdata-j*sizeof(struct clidet))->acc_num == buf.cli_pid)
+			break;
+		}	
+		if(j==(*ptr))
+		{
+			(tempdata+(*ptr)*sizeof(struct clidet))->acc_num = buf.cli_pid;
+			(tempdata+(*ptr)*sizeof(struct clidet))->balance = amount;
+			// (tempdata+(*ptr)*sizeof(struct clidet))->type = DEPOSIT;
+			(tempdata+(*ptr)*sizeof(struct clidet))->timestamp = time(NULL);
+			(*ptr)++;
+		}	
+
+	}
+	
+	buf.present = 1;
+	buf.mtype=buf.cli_pid;
+				// printf("%d\n", client_details[i].acc_num);
+	if(msgsnd(msgqid, &buf, sizeof(struct mas_msgbuf), 0) == -1)
+	{
+		perror("msgsnd");
+		exit(1);
+	}
+	printf("sent it\n");
 	// void *data=shmat()
 }
 

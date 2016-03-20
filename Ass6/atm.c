@@ -133,9 +133,9 @@ int localConsistencyCheck(int accnt_num, int money)
 		if((tempdata-j*sizeof(struct clidet))->acc_num == accnt_num)
 			break;
 	}
-	if(((tempdata-j*sizeof(struct clidet))->balance)+amount>=0)
+	if(((tempdata-j*sizeof(struct clidet))->balance)+amount-money>=0)
 	{
-		printf("rs %d\n",((tempdata-j*sizeof(struct clidet))->balance)+amount );
+		printf("rs %d\n",((tempdata-j*sizeof(struct clidet))->balance)+amount -money);
 		return 1;
 	}
 	else
@@ -251,11 +251,13 @@ void viewRoutine(struct cli_msgbuf buf1)
 		perror("msgrcv");
 		exit(1);
 	}
+	printf("got it back\n");
 	if(buf2.present == 0)
 		return ;
 	// struct clidet *tempdata;
 	// tempdata=(struct clidet *)data;
 	int *ptr = (int *)(data+SHM_SIZE-sizeof(int));
+	printf("%d clients\n",*ptr );
 	int j;
 	struct clidet *tempdata = (struct clidet *)(data+SHM_SIZE-sizeof(int));
 	for(j=1;j<=(*ptr);j++)
@@ -266,14 +268,17 @@ void viewRoutine(struct cli_msgbuf buf1)
 				// buf1.cli_pid=pid;
 			buf1.result=1;
 			buf1.money=(tempdata-j)->balance;
-			if(msgsnd(msgqid, &buf1, sizeof(struct cli_msgbuf), 0) == -1)
+			
+			break;
+		}
+	}
+	buf1.mtype=buf1.cli_pid;
+	buf1.result=1;
+	if(msgsnd(msgqid, &buf1, sizeof(struct cli_msgbuf), 0) == -1)
 			{
 				perror("msgsnd");
 				exit(1);
 			}
-			break;
-		}
-	}
 }
 
 void waitForClient()
