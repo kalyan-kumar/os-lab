@@ -112,6 +112,7 @@ int localConsistencyCheck(int accnt_num, int money)
 		}
 		datas=shmat(cur_mem, (void *)0, 0);
 		ptr = (int *)datas;
+		printf("%d pointersizes\n", *ptr);
 		temptime = (struct transaction *)(datas+sizeof(int));
 		for(j=0;j<(*ptr);j++)
 		{
@@ -132,7 +133,10 @@ int localConsistencyCheck(int accnt_num, int money)
 			break;
 	}
 	if(((tempdata-j*sizeof(struct clidet))->balance)+amount>=0)
+	{
+		printf("rs %d\n",((tempdata-j*sizeof(struct clidet))->balance)+amount );
 		return 1;
+	}
 	else
 		return -1;
 }
@@ -156,7 +160,7 @@ void enterRoutine(struct cli_msgbuf buf1)
 		perror("msgrcv");
 		exit(1);
 	}
-	// printf("recieved\n");
+	 printf("recieved %d\n",buf2.present);
 
 	if(buf2.present==1)
 	{
@@ -201,6 +205,7 @@ void withdrawRoutine(struct cli_msgbuf buf1)
 		(tempdata+(*ptr)*sizeof(struct transaction))->timestamp = time(NULL);
 		(*ptr)++;
 		buf1.result = 1;
+
 		if(msgsnd(msgqid, &buf1, sizeof(struct cli_msgbuf), 0) == -1)
 		{
 			perror("msgsnd");
@@ -213,6 +218,7 @@ void depositRoutine(struct cli_msgbuf buf1)
 {
 	printf("trying to deposit\n");
 	int *ptr = (int *)data;
+	// printf("%d money\n",buf1.money );
 	struct transaction *tempdata = (struct transaction *)(data+sizeof(int));
 	(tempdata+(*ptr)*sizeof(struct transaction))->acc_num = buf1.cli_pid;
 		(tempdata+(*ptr)*sizeof(struct transaction))->money = buf1.money;
@@ -220,6 +226,7 @@ void depositRoutine(struct cli_msgbuf buf1)
 		(tempdata+(*ptr)*sizeof(struct transaction))->timestamp = time(NULL);
 	(*ptr)++;
 	buf1.result = 1;
+	printf("%d dep\n", *ptr);
 	// printf("deposited\n");
 	if(msgsnd(msgqid, &buf1, sizeof(struct cli_msgbuf), 0) == -1)
 	{

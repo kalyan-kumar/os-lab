@@ -261,7 +261,7 @@ int main(int argc, char *argv[])
 
 	while(1)
 	{
-		if(msgrcv(msgqid, &buf, sizeof(struct mas_msgbuf), -2, IPC_NOWAIT) != -1)
+		if(msgrcv(msgqid, &buf, sizeof(struct mas_msgbuf), -2, 0) != -1)
 		{
 			if(buf.present!=0&&buf.present!=1)
 				continue;
