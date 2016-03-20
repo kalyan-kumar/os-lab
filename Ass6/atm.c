@@ -48,6 +48,21 @@ struct cli_msgbuf {
 	int money;
 };
 
+void showMemory()
+{
+	printf("Table 1\n");
+	int *ptr = (int *)data;
+	struct transaction *tempdata = (struct transaction *)(data+sizeof(int));
+	int i;
+	for(i=0;i<(*ptr);i++)
+		printf("%d\tAccnum-%d\tMoney-%d\ttype-%d\n", i+1, (tempdata+i*sizeof(struct transaction))->acc_num, (tempdata+i*sizeof(struct transaction))->money, (tempdata+i*sizeof(struct transaction))->type);
+	printf("\nTable 2\n");
+	ptr = (int *)(data+SHM_SIZE-sizeof(int));
+	struct clidet *temptime = (struct clidet *)(data+SHM_SIZE-sizeof(int));
+	for(i=1;i<=(*ptr);i++)
+		printf("%d\tAccnum-%d\tBalance-%d\n", i, (temptime-i*sizeof(struct clidet))->acc_num, (temptime-i*sizeof(struct clidet))->balance);
+}
+
 void createIPC()
 {
 	key_t key, k0, k1;
@@ -250,13 +265,21 @@ void viewRoutine(struct cli_msgbuf buf1)
 		perror("msgrcv");
 		exit(1);
 	}
+	showMemory();
 	printf("got it back\n");
 	if(buf2.present == 0)
+	{
+		buf1.mtype=buf1.cli_pid;
+		buf1.result = 0;
+		buf1.money = -1;
+		if(msgsnd(msgqid, &buf1, sizeof(struct cli_msgbuf), 0) == -1)
+		{
+			perror("msgsnd");
+			exit(1);
+		}
 		return ;
-	// struct clidet *tempdata;
-	// tempdata=(struct clidet *)data;
+	}
 	int *ptr = (int *)(data+SHM_SIZE-sizeof(int));
-	// printf("%d clients\n",*ptr );
 	int j;
 	struct clidet *tempdata = (struct clidet *)(data+SHM_SIZE-sizeof(int));
 	for(j=1;j<=(*ptr);j++)
@@ -264,20 +287,25 @@ void viewRoutine(struct cli_msgbuf buf1)
 		if((tempdata-j*sizeof(struct clidet))->acc_num == buf1.cli_pid)
 		{
 			buf1.mtype=buf1.cli_pid;
-				// buf1.cli_pid=pid;
 			buf1.result=1;
 			buf1.money=(tempdata-j*sizeof(struct clidet))->balance;
-			
-			break;
-		}
-	}
-	buf1.mtype=buf1.cli_pid;
-	buf1.result=1;
-	if(msgsnd(msgqid, &buf1, sizeof(struct cli_msgbuf), 0) == -1)
+			if(msgsnd(msgqid, &buf1, sizeof(struct cli_msgbuf), 0) == -1)
 			{
 				perror("msgsnd");
 				exit(1);
-			}
+			}		
+			printf("Successful\n");
+			return ;
+		}
+	}
+	buf1.mtype=buf1.cli_pid;
+	buf1.result = 0;
+	buf1.money = -1;
+	if(msgsnd(msgqid, &buf1, sizeof(struct cli_msgbuf), 0) == -1)
+	{
+		perror("msgsnd");
+		exit(1);
+	}
 	printf("done\n");		
 }
 
@@ -294,38 +322,23 @@ void waitForClient()
 	switch(buf1.mtype)
 	{
 		case ENTER:
-		enterRoutine(buf1);
-		break;
+			enterRoutine(buf1);
+			break;
 		case WITHDRAW:
-		withdrawRoutine(buf1);
-		break;
+			withdrawRoutine(buf1);
+			break;
 		case DEPOSIT:
-		depositRoutine(buf1);
-		break;
+			depositRoutine(buf1);
+			break;
 		case VIEW:
-		viewRoutine(buf1);
-		break;
+			viewRoutine(buf1);
+			break;
 	}
 }
 
 void sigHand(int sig)
 {
 	quit = 1;
-}
-
-void showMemory()
-{
-	printf("Table 1\n");
-	int *ptr = (int *)data;
-	struct transaction *tempdata = (struct transaction *)(data+sizeof(int));
-	int i;
-	for(i=0;i<(*ptr);i++)
-		printf("%d\tAccnum-%d\tMoney-%d\ttype-%d\n", i+1, (tempdata+i*sizeof(struct transaction))->acc_num, (tempdata+i*sizeof(struct transaction))->money, (tempdata+i*sizeof(struct transaction))->type);
-	printf("\nTable 2\n");
-	ptr = (int *)(data+SHM_SIZE-sizeof(int));
-	struct clidet *temptime = (struct clidet *)(data+SHM_SIZE-sizeof(int));
-	for(i=1;i<=(*ptr);i++)
-		printf("%d\tAccnum-%d\tBalance-%d\n", i, (temptime-i*sizeof(struct clidet))->acc_num, (temptime-i*sizeof(struct clidet))->balance);
 }
 
 int main(int argc, char *argv[])

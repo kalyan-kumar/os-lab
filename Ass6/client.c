@@ -128,6 +128,8 @@ void view()
 	struct cli_msgbuf buf;
 	buf.mtype = VIEW;
 	buf.cli_pid = getpid();
+	buf.result = -1;
+	buf.money = -1;
 	if(msgsnd(msqid, &buf, sizeof(struct cli_msgbuf), 0) == -1)
 	{
 		perror("msgsnd");
