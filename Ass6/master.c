@@ -182,6 +182,7 @@ int main(int argc, char *argv[])
 			if(i==num_clients)
 			{
 				buf.present = 0;
+				buf.mtype=buf.cli_pid;
 				if(msgsnd(msgqid, &buf, sizeof(struct mas_msgbuf), 0) == -1)
 				{
 					perror("msgsnd");

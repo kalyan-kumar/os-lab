@@ -136,7 +136,7 @@ int localConsistencyCheck(int money)
 int globalConsistencyCheck(int pid)
 {
 	struct mas_msgbuf buf2;
-	buf2.mtype = 1;					// Set mtype
+	buf2.mtype = 2;					// Set mtype
 	buf2.cli_pid = pid;
 	buf2.present=1;
 	if(msgsnd(masqid, &buf2, sizeof(struct mas_msgbuf), 0) == -1)
@@ -144,7 +144,7 @@ int globalConsistencyCheck(int pid)
 			perror("msgsnd");
 			exit(1);
 		}
-	if(msgrcv(msgqid, &buf2, sizeof(struct mas_msgbuf), 1, 0) == -1)
+	if(msgrcv(masqid, &buf2, sizeof(struct mas_msgbuf), pid, 0) == -1)
 		{
 			perror("msgrcv");
 			exit(1);
@@ -172,7 +172,7 @@ void waitForClient()
 			perror("msgsnd");
 			exit(1);
 		}
-		if(msgrcv(msgqid, &buf2, sizeof(struct mas_msgbuf), 1, 0) == -1)
+		if(msgrcv(masqid, &buf2, sizeof(struct mas_msgbuf), 1, 0) == -1)///was msgqid
 		{
 			perror("msgrcv");
 			exit(1);
