@@ -106,6 +106,7 @@ void deposit()
 	buf.mtype = DEPOSIT;
 	buf.cli_pid = getpid();
 	buf.money = amount;
+	buf.result=0;
 	if(msgsnd(msqid, &buf, sizeof(struct cli_msgbuf), 0) == -1)
 	{
 		perror("msgsnd");
@@ -117,7 +118,7 @@ void deposit()
 		exit(1);
 	}
 	if(buf.result==1)
-		printf("Collect your money\n");
+		printf("Deposited\n");
 	else
 		printf("Sorry, there was an internal error\n");
 }
@@ -167,7 +168,9 @@ int mainScreen()
 
 int main(int argc, char *argv[])
 {
-	displayAtms();
+	while(1)
+
+	{displayAtms();
 	createIPC();
 	
 	struct cli_msgbuf buf;
@@ -178,6 +181,7 @@ int main(int argc, char *argv[])
 		perror("msgsnd");
 		exit(1);
 	}
+	printf("sent\n");
 	if(msgrcv(msqid, &buf, sizeof(struct cli_msgbuf), 0, 0) == -1)
 	{
 		perror("msgrcv");
@@ -191,6 +195,6 @@ int main(int argc, char *argv[])
 	{
 		if(mainScreen()==-1)
 			break;
-	}
+	}}
 	return 0;
 }

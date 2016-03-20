@@ -143,17 +143,21 @@ void enterRoutine(struct cli_msgbuf buf1)
 	buf2.mtype = 2;					// Set mtype
 	buf2.cli_pid = buf1.cli_pid;
 	buf2.present=0;
-
+	// printf("lol\n");
 	if(msgsnd(masqid, &buf2, sizeof(struct mas_msgbuf), 0) == -1)
 	{
 		perror("msgsnd");
 		exit(1);
 	}
+	// printf("sent\n");
+
 	if(msgrcv(masqid, &buf2, sizeof(struct mas_msgbuf), buf1.cli_pid, 0) == -1)
 	{
 		perror("msgrcv");
 		exit(1);
 	}
+	// printf("recieved\n");
+
 	if(buf2.present==1)
 	{
 		buf1.result = 1;
@@ -166,6 +170,7 @@ void enterRoutine(struct cli_msgbuf buf1)
 	}
 	else
 	{
+		// printf("sending result 0\n");
 		buf1.result = 0;
 		if(msgsnd(msgqid, &buf1, sizeof(struct cli_msgbuf), 0) == -1)
 		{
@@ -206,6 +211,7 @@ void withdrawRoutine(struct cli_msgbuf buf1)
 
 void depositRoutine(struct cli_msgbuf buf1)
 {
+	printf("trying to deposit\n");
 	int *ptr = (int *)data;
 	struct transaction *tempdata = (struct transaction *)(data+sizeof(int));
 	(tempdata+(*ptr)*sizeof(struct transaction))->acc_num = buf1.cli_pid;
@@ -214,6 +220,7 @@ void depositRoutine(struct cli_msgbuf buf1)
 		(tempdata+(*ptr)*sizeof(struct transaction))->timestamp = time(NULL);
 	(*ptr)++;
 	buf1.result = 1;
+	// printf("deposited\n");
 	if(msgsnd(msgqid, &buf1, sizeof(struct cli_msgbuf), 0) == -1)
 	{
 		perror("msgsnd");
@@ -265,11 +272,12 @@ void viewRoutine(struct cli_msgbuf buf1)
 void waitForClient()
 {
 	struct cli_msgbuf buf1;
-	if(msgrcv(msgqid, &buf1, sizeof(struct cli_msgbuf), 1, 0) == -1)
+	if(msgrcv(msgqid, &buf1, sizeof(struct cli_msgbuf), 0, 0) == -1)
 	{
 		perror("msgrcv");
 		exit(1);
 	}
+	printf("%d\n",buf1.mtype);
 	switch(buf1.mtype)
 	{
 		case ENTER:
@@ -291,6 +299,7 @@ int main(int argc, char *argv[])
 {
 	ind = atoi(argv[1]);
 	createIPC(ind);
+	printf("created %d\n",ind );
 	while(1)
 		waitForClient(ind);
 	return 0;

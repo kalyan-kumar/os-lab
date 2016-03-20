@@ -51,10 +51,12 @@ union semun {
 };
 void addclient(int acc_num)
 {
-	struct clidet temp;
-	temp.acc_num=acc_num;
-	temp.balance=rand()%100000+2000;
-	temp.timestamp=time(NULL);
+	// struct clidet temp;
+	client_details[num_clients].acc_num=acc_num;
+	client_details[num_clients].balance=rand()%100000+2000;
+	client_details[num_clients].timestamp=time(NULL);
+	num_clients++;
+
 }
 
 int initsem(key_t key, int nsems)  /* key from ftok() */
@@ -226,7 +228,7 @@ int main(int argc, char *argv[])
 	createIPC();
 	num_clients = 0;
 	FILE *fp = fopen("locator.txt", "w");
-    fprintf(fp, "ATM ID\t\tmsg que key\t\tlock\t\tshm key\n" );
+    // fprintf(fp, "ATM ID\t\tmsg que key\t\tlock\t\tshm key\n" );
 	for(i=0;i<NUM_OF_ATM;i++)
 	{
 		atms[i] = fork();
@@ -259,8 +261,10 @@ int main(int argc, char *argv[])
 
 	while(1)
 	{
-		if(msgrcv(msgqid, &buf, sizeof(struct mas_msgbuf), 1, IPC_NOWAIT) != -1)
+		if(msgrcv(msgqid, &buf, sizeof(struct mas_msgbuf), -2, IPC_NOWAIT) != -1)
 		{
+			if(buf.present!=0&&buf.present!=1)
+				continue;
 			if(buf.present==1)
 			{
 				globalConsistency(buf);
@@ -272,6 +276,7 @@ int main(int argc, char *argv[])
 					continue;
 				buf.present = 1;
 				buf.mtype=buf.cli_pid;
+				// printf("%d\n", client_details[i].acc_num);
 				if(msgsnd(msgqid, &buf, sizeof(struct mas_msgbuf), 0) == -1)
 				{
 					perror("msgsnd");
@@ -282,6 +287,7 @@ int main(int argc, char *argv[])
 			if(i==num_clients)
 			{
 				buf.present = 0;
+				printf("trying to add\n");
 				buf.mtype=buf.cli_pid;
 				if(msgsnd(msgqid, &buf, sizeof(struct mas_msgbuf), 0) == -1)
 				{
