@@ -313,6 +313,21 @@ void sigHand(int sig)
 	quit = 1;
 }
 
+void showMemory()
+{
+	printf("Table 1\n");
+	int *ptr = (int *)data;
+	struct transaction *tempdata = (struct transaction *)(data+sizeof(int));
+	int i;
+	for(i=0;i<(*ptr);i++)
+		printf("%d\tAccnum-%d\tMoney-%d\ttype-%d\n", i+1, (tempdata+i*sizeof(struct transaction))->acc_num, (tempdata+i*sizeof(struct transaction))->money, (tempdata+i*sizeof(struct transaction))->type);
+	printf("\nTable 2\n");
+	ptr = (int *)(data+SHM_SIZE-sizeof(int));
+	struct clidet *temptime = (struct clidet *)(data+SHM_SIZE-sizeof(int));
+	for(i=1;i<=(*ptr);i++)
+		printf("%d\tAccnum-%d\tBalance-%d\n", i, (temptime-i*sizeof(struct clidet))->acc_num, (temptime-i*sizeof(struct clidet))->balance);
+}
+
 int main(int argc, char *argv[])
 {
 	ind = atoi(argv[1]);
@@ -321,7 +336,10 @@ int main(int argc, char *argv[])
 	signal(SIGINT, sigHand);
 	printf("created %d\n",ind );
 	while(quit==0)
+	{
 		waitForClient(ind);
+		showMemory();
+	}
 	if(shmdt(data) == -1)
 	{
         perror("shmdt");
