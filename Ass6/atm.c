@@ -128,7 +128,6 @@ int localConsistencyCheck(int accnt_num, int money)
 		}
 		datas=shmat(cur_mem, (void *)0, 0);
 		ptr = (int *)datas;
-		printf("%d pointersizes\n", *ptr);
 		temptime = (struct transaction *)(datas+sizeof(int));
 		for(j=0;j<(*ptr);j++)
 		{
@@ -149,10 +148,7 @@ int localConsistencyCheck(int accnt_num, int money)
 			break;
 	}
 	if(((tempdata-j*sizeof(struct clidet))->balance)+amount-money>=0)
-	{
-		printf("rs %d\n",((tempdata-j*sizeof(struct clidet))->balance)+amount -money);
 		return 1;
-	}
 	else
 		return -1;
 }
@@ -233,7 +229,6 @@ void depositRoutine(struct cli_msgbuf buf1)
 {
 	printf("trying to deposit\n");
 	int *ptr = (int *)data;
-	// printf("%d money\n",buf1.money );
 	struct transaction *tempdata = (struct transaction *)(data+sizeof(int));
 	(tempdata+(*ptr)*sizeof(struct transaction))->acc_num = buf1.cli_pid;
 	(tempdata+(*ptr)*sizeof(struct transaction))->money = buf1.money;
@@ -241,7 +236,6 @@ void depositRoutine(struct cli_msgbuf buf1)
 	(tempdata+(*ptr)*sizeof(struct transaction))->timestamp = time(NULL);
 	(*ptr)++;
 	buf1.result = 1;
-	printf("%d dep\n", *ptr);
 	if(msgsnd(msgqid, &buf1, sizeof(struct cli_msgbuf), 0) == -1)
 	{
 		perror("msgsnd");
@@ -299,7 +293,7 @@ void viewRoutine(struct cli_msgbuf buf1)
 		}
 	}
 	buf1.mtype=buf1.cli_pid;
-	buf1.result = 0;
+	buf1.result = 1;
 	buf1.money = -1;
 	if(msgsnd(msgqid, &buf1, sizeof(struct cli_msgbuf), 0) == -1)
 	{
@@ -319,20 +313,17 @@ void waitForClient()
 		exit(1);
 	}
 	printf("%d\n",buf1.mtype);
-	switch(buf1.mtype)
+	if(buf1.mtype==ENTER)
+		enterRoutine(buf1);
+	else if(buf1.mtype==WITHDRAW)
+		withdrawRoutine(buf1);
+	else if(buf1.mtype==DEPOSIT)
+		depositRoutine(buf1);
+	else if(buf1.mtype==VIEW)
 	{
-		case ENTER:
-			enterRoutine(buf1);
-			break;
-		case WITHDRAW:
-			withdrawRoutine(buf1);
-			break;
-		case DEPOSIT:
-			depositRoutine(buf1);
-			break;
-		case VIEW:
-			viewRoutine(buf1);
-			break;
+		viewRoutine(buf1);
+		printf("Returning 3\n");
+		return ;
 	}
 }
 
@@ -350,7 +341,8 @@ int main(int argc, char *argv[])
 	printf("created %d\n",ind );
 	while(quit==0)
 	{
-		waitForClient(ind);
+		waitForClient();
+		printf("Came into while now\n");
 		showMemory();
 	}
 	if(shmdt(data) == -1)

@@ -91,6 +91,7 @@ void withdraw()
 		perror("msgrcv");
 		exit(1);
 	}
+	printf("Result - %d\n", buf.result);
 	if(buf.result==1)
 		printf("Collect your money\n");
 	else
@@ -117,6 +118,7 @@ void deposit()
 		perror("msgrcv");
 		exit(1);
 	}
+	printf("Result - %d\n", buf.result);
 	if(buf.result==1)
 		printf("Deposited\n");
 	else
@@ -128,7 +130,7 @@ void view()
 	struct cli_msgbuf buf;
 	buf.mtype = VIEW;
 	buf.cli_pid = getpid();
-	buf.result = -1;
+	buf.result = 1;
 	buf.money = -1;
 	if(msgsnd(msqid, &buf, sizeof(struct cli_msgbuf), 0) == -1)
 	{
@@ -140,10 +142,24 @@ void view()
 		perror("msgrcv");
 		exit(1);
 	}
+	printf("Result - %d\n", buf.result);
 	if(buf.result==1)
 		printf("Your account balance is - %d\n", buf.money);
 	else
 		printf("Sorry, there was an internal error\n");
+}
+
+void leave()
+{
+	struct sembuf sb;
+    sb.sem_flg = SEM_UNDO;
+    sb.sem_num = n;
+    sb.sem_op = 1;
+    if(semop(semid, &sb, 1) == -1)
+    {
+        perror("semop");
+        exit(1);
+    }
 }
 
 int mainScreen()
@@ -163,7 +179,7 @@ int mainScreen()
 			view();
 			return 3;
 		case 4:
-			printf("Come back again\n");
+			leave();
 			return -1;
 	}
 }

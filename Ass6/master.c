@@ -49,7 +49,7 @@ union semun {
     struct semid_ds *buf;
     ushort *array;
 };
-//rand()%100000+2000
+
 void addclient(int acc_num)
 {
 	client_details[num_clients].acc_num=acc_num;
