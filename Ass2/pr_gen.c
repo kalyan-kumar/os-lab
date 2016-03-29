@@ -114,7 +114,7 @@ int main(int argc, char **argv)
     act2.sa_sigaction = &busyHandler;
     act1.sa_flags = SA_SIGINFO;
     act2.sa_flags = SA_SIGINFO;
-	int i, j,  pipes_num, test;
+	int i, j, pipes_num, test;
     ppid = getpid();
     for(i=0;i<30001;i++)
         flag[i] = 0;

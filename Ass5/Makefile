@@ -4,10 +4,10 @@ train: train.c
 	gcc train.c -o train
 
 manager: manager.c
-	gcc manager.c -o manag
+	gcc manager.c -o manager
 
 Manager: Manager.c
-	gcc Manager.c -o manager
+	gcc Manager.c -o Manager
 
 producer: producer.c
 	gcc producer.c -o producer
